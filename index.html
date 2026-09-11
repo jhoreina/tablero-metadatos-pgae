@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modelo de Metadatos y Gobernanza de Datos PGAE - SDA</title>
+    <!-- Chart.js para visualización de métricas -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS para carga de archivos Excel en vivo desde el navegador -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --sda-dark-green: #577515;
+            --sda-bright-green: #89BC24;
+            --sda-bg-light: #F9F9F9;
+            --sda-card-bg: #FFFFFF;
+            --sda-text-main: #2D3748;
+            --sda-text-muted: #64748B;
+            --sda-border: #E2E8F0;
+            --sda-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            --sda-radius: 10px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
+            background-color: var(--sda-bg-light);
+            color: var(--sda-text-main);
+            line-height: 1.5;
+        }
+
+        /* Header Institucional */
+        header {
+            background: linear-gradient(135deg, var(--sda-dark-green) 0%, #3e550e 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+            border-bottom: 4px solid var(--sda-bright-green);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .header-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .header-title h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .header-title p {
+            font-size: 1.05rem;
+            opacity: 0.9;
+            color: #dbe8be;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .header-badge {
+            background: var(--sda-bright-green);
+            color: #1a3000;
+            padding: 0.5rem 1.2rem;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-upload {
+            background: #ffffff;
+            color: var(--sda-dark-green);
+            padding: 0.5rem 1.1rem;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border: 2px solid var(--sda-bright-green);
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-upload:hover {
+            background: #f4f8ec;
+            transform: translateY(-1px);
+        }
+
+        /* Bar Nav Tab */
+        nav {
+            background-color: white;
+            border-bottom: 1px solid var(--sda-border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+        }
+
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            overflow-x: auto;
+            white-space: nowrap;
+            scrollbar-width: thin;
+        }
+
+        .nav-tab {
+            padding: 1rem 1.25rem;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--sda-text-muted);
+            border: none;
+            background: none;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-tab:hover {
+            color: var(--sda-dark-green);
+            background-color: #f4f8ec;
+        }
+
+        .nav-tab.active {
+            color: var(--sda-dark-green);
+            border-bottom-color: var(--sda-bright-green);
+            background-color: #f4f8ec;
+        }
+
+        /* Main Body */
+        main {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Grid Metrics Cards */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 2rem;
+        }
+
+        .kpi-card {
+            background: white;
+            border-radius: var(--sda-radius);
+            padding: 1.25rem;
+            box-shadow: var(--sda-shadow);
+            border-top: 4px solid var(--sda-bright-green);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .kpi-card.accent {
+            border-top-color: var(--sda-dark-green);
+        }
+
+        .kpi-title {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--sda-text-muted);
+            font-weight: 700;
+        }
+
+        .kpi-value {
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: var(--sda-dark-green);
+            margin: 0.4rem 0;
+        }
+
+        .kpi-sub {
+            font-size: 0.8rem;
+            color: var(--sda-text-muted);
+        }
+
+        /* Section Title */
+        .section-header {
+            margin-bottom: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .section-title {
+            font-size: 1.4rem;
+            color: var(--sda-dark-green);
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Matrix Table */
+        .matrix-container {
+            background: white;
+            border-radius: var(--sda-radius);
+            padding: 1.5rem;
+            box-shadow: var(--sda-shadow);
+            margin-bottom: 2rem;
+            overflow-x: auto;
+        }
+
+        .matrix-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
+        .matrix-table th, .matrix-table td {
+            padding: 0.75rem 0.5rem;
+            border: 1px solid var(--sda-border);
+        }
+
+        .matrix-table th {
+            background-color: #f2f7e9;
+            color: var(--sda-dark-green);
+            font-weight: 700;
+        }
+
+        .matrix-cell {
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .matrix-cell:hover {
+            transform: scale(1.08);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            z-index: 10;
+        }
+
+        .cell-0 { background-color: #f8fafc; color: #94a3b8; }
+        .cell-low { background-color: #e2f2cc; color: #3b520a; }
+        .cell-med { background-color: #c1e685; color: #283a04; }
+        .cell-high { background-color: #89bc24; color: #152400; }
+        .cell-dark { background-color: #577515; color: #ffffff; }
+
+        /* Charts Layout */
+        .charts-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-card {
+            background: white;
+            border-radius: var(--sda-radius);
+            padding: 1.5rem;
+            box-shadow: var(--sda-shadow);
+        }
+
+        .chart-card h3 {
+            font-size: 1.1rem;
+            color: var(--sda-dark-green);
+            margin-bottom: 1rem;
+        }
+
+        /* Timeline Roadmap */
+        .roadmap-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 2rem;
+        }
+
+        .roadmap-card {
+            background: white;
+            border-radius: var(--sda-radius);
+            padding: 1.25rem;
+            box-shadow: var(--sda-shadow);
+            border-left: 5px solid var(--sda-bright-green);
+        }
+
+        .roadmap-phase {
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--sda-bright-green);
+        }
+
+        .roadmap-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--sda-dark-green);
+            margin: 0.3rem 0 0.5rem 0;
+        }
+
+        .roadmap-desc {
+            font-size: 0.9rem;
+            color: var(--sda-text-main);
+            margin-bottom: 0.8rem;
+        }
+
+        .roadmap-meta {
+            font-size: 0.8rem;
+            background: #f1f5f9;
+            padding: 0.5rem;
+            border-radius: 6px;
+            color: var(--sda-text-muted);
+        }
+
+        /* Controls */
+        .controls-card {
+            background: white;
+            border-radius: var(--sda-radius);
+            padding: 1.25rem;
+            box-shadow: var(--sda-shadow);
+            margin-bottom: 1.5rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 260px;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 0.65rem 1rem 0.65rem 2.4rem;
+            border: 1px solid var(--sda-border);
+            border-radius: 6px;
+            font-size: 0.95rem;
+            font-family: inherit;
+        }
+
+        .search-box::before {
+            content: "🔍";
+            position: absolute;
+            left: 0.8rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.9rem;
+            opacity: 0.5;
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-select {
+            padding: 0.65rem 1rem;
+            border: 1px solid var(--sda-border);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            background-color: white;
+            color: var(--sda-text-main);
+        }
+
+        .btn {
+            padding: 0.65rem 1.2rem;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background-color: var(--sda-dark-green);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #445d0f;
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            border: 1px solid var(--sda-dark-green);
+            color: var(--sda-dark-green);
+        }
+
+        .btn-outline:hover {
+            background-color: #f4f8ec;
+        }
+
+        /* Data Table */
+        .table-card {
+            background: white;
+            border-radius: var(--sda-radius);
+            box-shadow: var(--sda-shadow);
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .data-table th {
+            background-color: #f2f7e9;
+            color: var(--sda-dark-green);
+            padding: 0.85rem 1rem;
+            text-align: left;
+            font-weight: 700;
+            border-bottom: 2px solid var(--sda-border);
+        }
+
+        .data-table td {
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid var(--sda-border);
+            color: var(--sda-text-main);
+        }
+
+        .data-table tbody tr:hover {
+            background-color: #f8faf5;
+            cursor: pointer;
+        }
+
+        .badge {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        .badge-original { background: #e0f2fe; color: #0369a1; }
+        .badge-homologado { background: #fef3c7; color: #b45309; }
+        .badge-validado { background: #dcfce7; color: #15803d; }
+
+        /* Generic Cards Grid */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 2rem;
+        }
+
+        .info-card {
+            background: white;
+            border-radius: var(--sda-radius);
+            padding: 1.5rem;
+            box-shadow: var(--sda-shadow);
+            border: 1px solid var(--sda-border);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .info-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.08);
+        }
+
+        .info-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 1rem;
+        }
+
+        .info-icon {
+            font-size: 1.8rem;
+            background: #f4f8ec;
+            padding: 8px;
+            border-radius: 8px;
+            color: var(--sda-dark-green);
+        }
+
+        .info-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--sda-dark-green);
+        }
+
+        .info-sub {
+            font-size: 0.8rem;
+            color: var(--sda-bright-green);
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .info-body {
+            font-size: 0.9rem;
+            color: var(--sda-text-main);
+        }
+
+        .formula-box {
+            background: #f8fafc;
+            border-left: 4px solid var(--sda-dark-green);
+            padding: 0.75rem 1rem;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+            margin: 0.75rem 0;
+            border-radius: 0 6px 6px 0;
+            color: #1e293b;
+            font-weight: bold;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 1rem;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: var(--sda-radius);
+            max-width: 700px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            animation: modalPop 0.25s ease-out;
+        }
+
+        @keyframes modalPop {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .modal-header {
+            background: var(--sda-dark-green);
+            color: white;
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            font-size: 1.2rem;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+        }
+
+        .detail-item {
+            background: #f8fafc;
+            padding: 0.85rem;
+            border-radius: 6px;
+            border: 1px solid var(--sda-border);
+        }
+
+        .detail-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--sda-text-muted);
+            font-weight: 700;
+        }
+
+        .detail-value {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--sda-text-main);
+            margin-top: 2px;
+        }
+
+        /* Footer */
+        footer {
+            background: #1e293b;
+            color: #94a3b8;
+            text-align: center;
+            padding: 2rem 1rem;
+            margin-top: 4rem;
+            font-size: 0.85rem;
+            border-top: 4px solid var(--sda-bright-green);
+        }
+
+        footer a {
+            color: var(--sda-bright-green);
+            text-decoration: none;
+        }
+
+        @media (max-width: 768px) {
+            .header-container {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .charts-row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Institucional -->
+    <header>
+        <div class="header-container">
+            <div class="header-title">
+                <h1>Secretaría Distrital de Ambiente</h1>
+                <p>Modelo de Metadatos y Gobernanza de Datos PGAE (v5.0 / v6.0)</p>
+            </div>
+            <div class="header-actions">
+                <label class="btn-upload" title="Cargar un nuevo archivo Excel para actualizar la plataforma en tiempo real">
+                    📁 Cargar Excel (.xlsx)
+                    <input type="file" id="excelFileInput" accept=".xlsx" style="display:none;" onchange="handleExcelUpload(event)">
+                </label>
+                <div class="header-badge">
+                    🌿 Subdirección SEGAE / OTI
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Barra de Navegación por Pestañas -->
+    <nav>
+        <div class="nav-container">
+            <button class="nav-tab active" onclick="switchTab('tab-general')">📊 Visión General</button>
+            <button class="nav-tab" onclick="switchTab('tab-inventario')">🗂️ Inventario de Atributos</button>
+            <button class="nav-tab" onclick="switchTab('tab-campos')">🎯 Campos y Eslabones</button>
+            <button class="nav-tab" onclick="switchTab('tab-preguntas')">❓ Preguntas Estratégicas</button>
+            <button class="nav-tab" onclick="switchTab('tab-dimensiones')">🧩 Dimensiones Maestras</button>
+            <button class="nav-tab" onclick="switchTab('tab-indicadores')">📈 Indicadores Derivados</button>
+            <button class="nav-tab" onclick="switchTab('tab-fuentes')">💻 Catálogo de Fuentes</button>
+        </div>
+    </nav>
+
+    <!-- Contenido Principal -->
+    <main>
+
+        <!-- PESTAÑA 1: VISIÓN GENERAL -->
+        <div id="tab-general" class="tab-content active">
+            <!-- Métricas KPI -->
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-title">Total Atributos Gobernados</div>
+                    <div class="kpi-value" id="kpiTotalAttrs">230</div>
+                    <div class="kpi-sub">Inventario completo PGAE (3NF)</div>
+                </div>
+                <div class="kpi-card accent">
+                    <div class="kpi-title">Campos de Acción</div>
+                    <div class="kpi-value" id="kpiCampos">9</div>
+                    <div class="kpi-sub">Vectores temáticos de empresa</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-title">Eslabones Cadena de Valor</div>
+                    <div class="kpi-value" id="kpiEslabones">8</div>
+                    <div class="kpi-sub">Etapas del proceso institucional</div>
+                </div>
+                <div class="kpi-card accent">
+                    <div class="kpi-title">Preguntas Estratégicas</div>
+                    <div class="kpi-value" id="kpiPreguntas">15</div>
+                    <div class="kpi-sub">Requerimientos de analítica</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-title">Dimensiones Maestras</div>
+                    <div class="kpi-value" id="kpiDimensiones">7</div>
+                    <div class="kpi-sub">Claves únicas de gobernanza</div>
+                </div>
+                <div class="kpi-card accent">
+                    <div class="kpi-title">Sistemas Fuentes</div>
+                    <div class="kpi-value" id="kpiFuentes">9</div>
+                    <div class="kpi-sub">Catálogo normalizado OTI</div>
+                </div>
+            </div>
+
+            <!-- Matriz Firma de Datos -->
+            <div class="section-header">
+                <h2 class="section-title"> Matriz Eslabón × Campo de Acción ("Firma de Datos")</h2>
+                <span style="font-size:0.85rem; color:var(--sda-text-muted);">Haz clic en cualquier celda para filtrar el inventario</span>
+            </div>
+
+            <div class="matrix-container">
+                <table class="matrix-table" id="matrixTable">
+                    <thead>
+                        <tr>
+                            <th>Eslabón de la Cadena</th>
+                            <th>CA-01<br>Predial</th>
+                            <th>CA-02<br>Productiva</th>
+                            <th>CA-03<br>Hídrico</th>
+                            <th>CA-04<br>Energía</th>
+                            <th>CA-05<br>RESPEL</th>
+                            <th>CA-06<br>SGA/DGA</th>
+                            <th>CA-07<br>Proyectos</th>
+                            <th>CA-08<br>Legalidad</th>
+                            <th>CA-09<br>Soportes</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="matrixBody">
+                        <!-- Generado por JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Gráficos -->
+            <div class="charts-row">
+                <div class="chart-card">
+                    <h3>Distribución de Atributos por Campo de Acción</h3>
+                    <canvas id="chartCampos" height="220"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3>Densidad de Atributos por Eslabón de Proceso</h3>
+                    <canvas id="chartEslabones" height="220"></canvas>
+                </div>
+            </div>
+
+            <!-- Hoja de Ruta OTI -->
+            <div class="section-header">
+                <h2 class="section-title">🗺️ Hoja de Ruta e Implementación Técnica (OTI)</h2>
+            </div>
+            <div class="roadmap-grid" id="roadmapGrid">
+                <!-- Generado por JavaScript -->
+            </div>
+        </div>
+
+        <!-- PESTAÑA 2: INVENTARIO DE ATRIBUTOS -->
+        <div id="tab-inventario" class="tab-content">
+            <div class="section-header">
+                <h2 class="section-title">🗂️ Catálogo e Inventario Gobernadode Atributos</h2>
+                <div>
+                    <button class="btn btn-outline" onclick="exportData('json')">📥 Exportar JSON</button>
+                    <button class="btn btn-primary" onclick="exportData('csv')">📊 Exportar CSV</button>
+                </div>
+            </div>
+
+            <!-- Filtros y Búsqueda -->
+            <div class="controls-card">
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="Buscar por ID, atributo, fuente, sistema..." onkeyup="filterInventory()">
+                </div>
+                <div class="filter-group">
+                    <select id="filterCampo" class="filter-select" onchange="filterInventory()">
+                        <option value="">Todos los Campos de Acción</option>
+                    </select>
+                    <select id="filterEslabon" class="filter-select" onchange="filterInventory()">
+                        <option value="">Todos los Eslabones</option>
+                    </select>
+                    <select id="filterEstado" class="filter-select" onchange="filterInventory()">
+                        <option value="">Todos los Estados del Dato</option>
+                        <option value="DATO ORIGINAL">Dato Original</option>
+                        <option value="DATO HOMOLOGADO">Dato Homologado</option>
+                        <option value="DATO VALIDADO">Dato Validado</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Tabla de Datos -->
+            <div class="table-card">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ID Atributo</th>
+                            <th>Atributo Base</th>
+                            <th>Campo de Acción</th>
+                            <th>Eslabón Cadena</th>
+                            <th>Sistema Fuente</th>
+                            <th>Estado</th>
+                            <th>Área Responsable</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventoryTableBody">
+                        <!-- Generado por JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- PESTAÑA 3: CAMPOS Y ESLABONES -->
+        <div id="tab-campos" class="tab-content">
+            <div class="section-header">
+                <h2 class="section-title">🎯 Campos de Acción (Vectores Temáticos)</h2>
+            </div>
+            <div class="card-grid" id="camposGrid"></div>
+
+            <div class="section-header" style="margin-top: 2rem;">
+                <h2 class="section-title">🔄 Eslabones de la Cadena de Valor (Procesos SDA)</h2>
+            </div>
+            <div class="card-grid" id="eslabonesGrid"></div>
+        </div>
+
+        <!-- PESTAÑA 4: PREGUNTAS ESTRATÉGICAS -->
+        <div id="tab-preguntas" class="tab-content">
+            <div class="section-header">
+                <h2 class="section-title">❓ Preguntas Estratégicas y Demanda de Información</h2>
+            </div>
+            <div class="card-grid" id="preguntasGrid"></div>
+        </div>
+
+        <!-- PESTAÑA 5: DIMENSIONES MAESTRAS -->
+        <div id="tab-dimensiones" class="tab-content">
+            <div class="section-header">
+                <h2 class="section-title">🧩 Dimensiones Maestras y Claves de Gobernanza</h2>
+            </div>
+            <div class="card-grid" id="dimensionesGrid"></div>
+        </div>
+
+        <!-- PESTAÑA 6: INDICADORES DERIVADOS -->
+        <div id="tab-indicadores" class="tab-content">
+            <div class="section-header">
+                <h2 class="section-title">📈 Indicadores Derivados y Reglas de Cómputo</h2>
+            </div>
+            <div class="card-grid" id="indicadoresGrid"></div>
+        </div>
+
+        <!-- PESTAÑA 7: CATÁLOGO DE FUENTES -->
+        <div id="tab-fuentes" class="tab-content">
+            <div class="section-header">
+                <h2 class="section-title">💻 Catálogo de Fuentes Originarias y Accesos OTI</h2>
+            </div>
+            <div class="card-grid" id="fuentesGrid"></div>
+        </div>
+
+    </main>
+
+    <!-- Modal Detalle Atributo -->
+    <div class="modal-overlay" id="detailModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Ficha del Atributo</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Generado dinámicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <p>Alcaldía Mayor de Bogotá D.C. — Secretaría Distrital de Ambiente (SDA)</p>
+        <p>Modelo de Metadatos y Gobernanza de Datos PGAE v5.0 / v6.0 | Subdirección SEGAE / Oficina OTI</p>
+    </footer>
+
+    <!-- Script principal de datos e interacción -->
+    <script>
+        // Datos iniciales embebidos desde el Excel
+        let attributesData = [{"id": "ATR-001", "eslabon": "E1 · Postulación e Inscripción", "campo": "CA-01 Predial", "nombre": "NIT de la Empresa", "naturaleza": "Texto (NIT)", "grano": "Empresa", "frecuencia": "Única / Novedad", "fuente": "Formulario Inscripción", "sistema": "Ventanilla Virtual", "area": "Subdirección SEGAE", "acceso": "API Formulario", "estado": "DATO ORIGINAL", "llave": "Empresa (NIT)", "replica": "Sí (RUA/DGA)", "grupo": "Grupo General", "preguntas": "PE-04, PE-06"}, {"id": "ATR-002", "eslabon": "E1 · Postulación e Inscripción", "campo": "CA-01 Predial", "nombre": "Razón Social de la Empresa", "naturaleza": "Texto (Nombre)", "grano": "Empresa", "frecuencia": "Única / Novedad", "fuente": "Certificado Cámara Comercio", "sistema": "Ventanilla Virtual", "area": "Subdirección SEGAE", "acceso": "API Formulario", "estado": "DATO ORIGINAL", "llave": "Empresa (NIT)", "replica": "Sí (BOG Data)", "grupo": "Grupo General", "preguntas": "PE-04, PE-06"}, {"id": "ATR-003", "eslabon": "E1 · Postulación e Inscripción", "campo": "CA-01 Predial", "nombre": "Dirección de Correspondencia", "naturaleza": "Texto (Dirección)", "grano": "Empresa", "frecuencia": "Única / Novedad", "fuente": "Formulario Inscripción", "sistema": "Ventanilla Virtual", "area": "Subdirección SEGAE", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Empresa (NIT)", "replica": "No", "grupo": "Grupo General", "preguntas": "PE-01, PE-04"}, {"id": "ATR-004", "eslabon": "E1 · Postulación e Inscripción", "campo": "CA-01 Predial", "nombre": "Correo Electrónico de Contacto", "naturaleza": "Texto (Email)", "grano": "Empresa", "frecuencia": "Única / Novedad", "fuente": "Formulario Inscripción", "sistema": "Ventanilla Virtual", "area": "Subdirección SEGAE", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Empresa (NIT)", "replica": "No", "grupo": "Grupo General", "preguntas": "PE-04, PE-10"}, {"id": "ATR-005", "eslabon": "E1 · Postulación e Inscripción", "campo": "CA-02 Productiva", "nombre": "Código CIIU Principal (Rev. 4)", "naturaleza": "Alfanumérico (4 dígitos)", "grano": "Empresa", "frecuencia": "Anual / Novedad", "fuente": "RUT / Cámara Comercio", "sistema": "Ventanilla Virtual", "area": "Subdirección SEGAE", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Empresa / CIIU", "replica": "Sí (RUA)", "grupo": "Grupo General", "preguntas": "PE-02, PE-15"}, {"id": "ATR-006", "eslabon": "E1 · Postulación e Inscripción", "campo": "CA-02 Productiva", "nombre": "Tamaño de la Empresa (Micro/Pequena/Mediana/Grande)", "naturaleza": "Categoría / Texto", "grano": "Empresa", "frecuencia": "Anual / Novedad", "fuente": "Autodeclaración Ley 590", "sistema": "Ventanilla Virtual", "area": "Subdirección SEGAE", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Empresa (NIT)", "replica": "Sí (RUA)", "grupo": "Grupo General", "preguntas": "PE-02, PE-06"}, {"id": "ATR-007", "eslabon": "E1 · Postulación e Inscripción", "campo": "CA-02 Productiva", "nombre": "Número de Empleados Totales", "naturaleza": "Numérico Entero", "grano": "Empresa", "frecuencia": "Anual", "fuente": "Planilla PILA / Autodeclaración", "sistema": "Ventanilla Virtual", "area": "Subdirección SEGAE", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Empresa (NIT)", "replica": "No", "grupo": "Grupo General", "preguntas": "PE-02, PE-06"}, {"id": "ATR-008", "eslabon": "E1 · Postulación e Inscripción", "campo": "CA-03 Hídrico", "nombre": "Modalidad Suministro Agua Postulada (Acueducto/Pozo/Carrotanque)", "naturaleza": "Categoría Multi-selección", "grano": "Sede", "frecuencia": "Inscripción", "fuente": "Formulario Inscripción", "sistema": "Ventanilla Virtual", "area": "Equipo Técnico SEGAE", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Sede / Recurso", "replica": "Sí (RUA)", "grupo": "Grupo Operativo", "preguntas": "PE-01, PE-08"}, {"id": "ATR-009", "eslabon": "E1 · Postulación e Inscripción", "campo": "CA-04 Energía", "nombre": "Fuentes Energéticas Utilizadas (Eléctrica/Gas/Térmica/Flotas)", "naturaleza": "Categoría Multi-selección", "grano": "Sede", "frecuencia": "Inscripción", "fuente": "Formulario Inscripción", "sistema": "Ventanilla Virtual", "area": "Equipo Técnico SEGAE", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Sede / Recurso", "replica": "Sí (RUA)", "grupo": "Grupo Operativo", "preguntas": "PE-01, PE-08"}, {"id": "ATR-010", "eslabon": "E1 · Postulación e Inscripción", "campo": "CA-05 RESPEL", "nombre": "Declaración Inicial Generación RESPEL (Sí/No)", "naturaleza": "Booleano (Flag)", "grano": "Sede", "frecuencia": "Inscripción", "fuente": "Formulario Inscripción", "sistema": "Ventanilla Virtual", "area": "Equipo RESPEL SEGAE", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Sede / RESPEL", "replica": "Sí (RUA)", "grupo": "Grupo Operativo", "preguntas": "PE-03"}, {"id": "ATR-011", "eslabon": "E1 · Postulación e Inscripción", "campo": "CA-06 SGA/DGA", "nombre": "Nivel de Postulación Deseado (ACERCAR / PREAD)", "naturaleza": "Categoría / Texto", "grano": "Sede", "frecuencia": "Inscripción", "fuente": "Formulario Inscripción", "sistema": "Ventanilla Virtual", "area": "Equipo PGAE / PREAD", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Sede / Programa", "replica": "No", "grupo": "Grupo General", "preguntas": "PE-06, PE-07"}, {"id": "ATR-012", "eslabon": "E1 · Postulación e Inscripción", "campo": "CA-06 SGA/DGA", "nombre": "Disponibilidad de SGA Previsto (Sí/No)", "naturaleza": "Booleano (Flag)", "grano": "Sede", "frecuencia": "Inscripción", "fuente": "Formulario Inscripción", "sistema": "Ventanilla Virtual", "area": "Equipo PGAE / PREAD", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Sede / SGA", "replica": "Sí (DGA)", "grupo": "Grupo General", "preguntas": "PE-06"}, {"id": "ATR-013", "eslabon": "E1 · Postulación e Inscripción", "campo": "CA-08 Legalidad", "nombre": "Declaración Cumplimiento Requisitos Legales Básicos", "naturaleza": "Booleano (Flag)", "grano": "Empresa", "frecuencia": "Inscripción", "fuente": "Formulario Inscripción", "sistema": "Ventanilla Virtual", "area": "Subdirección SEGAE", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Empresa / Legal", "replica": "No", "grupo": "Grupo General", "preguntas": "PE-13"}, {"id": "ATR-014", "eslabon": "E1 · Postulación e Inscripción", "campo": "CA-09 Soportes", "nombre": "Soporte Certificado Cámara Comercio PDF", "naturaleza": "Documental (PDF)", "grano": "Empresa", "frecuencia": "Inscripción", "fuente": "Certificado Cámara Comercio", "sistema": "Ventanilla Virtual", "area": "Subdirección SEGAE", "acceso": "Carga PDF", "estado": "DATO VALIDADO", "llave": "Empresa / DOC", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-04, PE-10"}, {"id": "ATR-015", "eslabon": "E1 · Postulación e Inscripción", "campo": "CA-09 Soportes", "nombre": "Soporte RUT Actualizado PDF", "naturaleza": "Documental (PDF)", "grano": "Empresa", "frecuencia": "Inscripción", "fuente": "Documento RUT DIAN", "sistema": "Ventanilla Virtual", "area": "Subdirección SEGAE", "acceso": "Carga PDF", "estado": "DATO VALIDADO", "llave": "Empresa / DOC", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-04, PE-10"}, {"id": "ATR-016", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-01 Predial", "nombre": "Código Llave Mástér GAE_NIT_Consecutivo", "naturaleza": "Alfanumérico (GAE_NIT_00N)", "grano": "Sede", "frecuencia": "Única / Novedad", "fuente": "Algoritmo Generador SDA", "sistema": "Herramienta Web GAE", "area": "Equipo Técnico SEGAE", "acceso": "Generación Automática", "estado": "DATO HOMOLOGADO", "llave": "Sede (Código Mástér)", "replica": "No (Llave Mástér)", "grupo": "Grupo Técnico", "preguntas": "PE-12, PE-14"}, {"id": "ATR-017", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-01 Predial", "nombre": "CHIP Predial Catastral", "naturaleza": "Alfanumérico (AAA...)", "grano": "Predio", "frecuencia": "Anual", "fuente": "Recibo Predial / Catastro", "sistema": "SINUPOT / BOG Data", "area": "Catastro / Rentas SDH", "acceso": "Interoperabilidad BOG Data", "estado": "DATO VALIDADO", "llave": "Sede (Predio)", "replica": "Sí (Rentas SDH)", "grupo": "Grupo Fiscal", "preguntas": "PE-05, PE-11"}, {"id": "ATR-018", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-01 Predial", "nombre": "Número Matrícula Inmobiliaria", "naturaleza": "Alfanumérico", "grano": "Predio", "frecuencia": "Única", "fuente": "Certificado Tradición y Libertad", "sistema": "Catastro / BOG Data", "area": "Rentas SDH / Catastro", "acceso": "Interoperabilidad BOG Data", "estado": "DATO VALIDADO", "llave": "Predio / Matrícula", "replica": "Sí (Rentas SDH)", "grupo": "Grupo Fiscal", "preguntas": "PE-05, PE-11"}, {"id": "ATR-019", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-01 Predial", "nombre": "Dirección de la Sede Postulada", "naturaleza": "Texto (Dirección Estándar)", "grano": "Sede", "frecuencia": "Única", "fuente": "Formulario / Visor Geográfico", "sistema": "Herramienta Web GAE", "area": "Equipo Técnico SEGAE", "acceso": "Editor Direcciones", "estado": "DATO HOMOLOGADO", "llave": "Sede / Dirección", "replica": "Sí (RUA)", "grupo": "Grupo Técnico", "preguntas": "PE-11, PE-12"}, {"id": "ATR-020", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-01 Predial", "nombre": "Localidad del Predio", "naturaleza": "Texto (Localidad)", "grano": "Sede", "frecuencia": "Única", "fuente": "Geocodificación SDP / Cartografía", "sistema": "SINUPOT / Visor GIS", "area": "Oficina OTI / SIG", "acceso": "Cruce Espacial GIS", "estado": "DATO HOMOLOGADO", "llave": "Sede / Localidad", "replica": "Sí (RUA)", "grupo": "Grupo GIS", "preguntas": "PE-11"}, {"id": "ATR-021", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-01 Predial", "nombre": "UPZ / UPL del Predio", "naturaleza": "Texto (UPZ)", "grano": "Sede", "frecuencia": "Única", "fuente": "Geocodificación SDP / Cartografía", "sistema": "SINUPOT / Visor GIS", "area": "Oficina OTI / SIG", "acceso": "Cruce Espacial GIS", "estado": "DATO HOMOLOGADO", "llave": "Sede / UPZ", "replica": "No", "grupo": "Grupo GIS", "preguntas": "PE-11"}, {"id": "ATR-022", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-01 Predial", "nombre": "Barrio Oficial Catastral", "naturaleza": "Texto (Barrio)", "grano": "Sede", "frecuencia": "Única", "fuente": "Geocodificación SDP / Cartografía", "sistema": "SINUPOT / Visor GIS", "area": "Oficina OTI / SIG", "acceso": "Cruce Espacial GIS", "estado": "DATO HOMOLOGADO", "llave": "Sede / Barrio", "replica": "No", "grupo": "Grupo GIS", "preguntas": "PE-11"}, {"id": "ATR-023", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-01 Predial", "nombre": "Coordenadas Geográficas MAGNA-SIRGAS Point (EPSG:3116)", "naturaleza": "Geometría (Point 3116)", "grano": "Sede", "frecuencia": "Única", "fuente": "Georreferenciación Visor SDA", "sistema": "PostGIS Layer", "area": "Oficina OTI / SIG", "acceso": "Servicio WFS / GIS", "estado": "DATO HOMOLOGADO", "llave": "Sede / Coordenadas", "replica": "Sí (RUA)", "grupo": "Grupo GIS", "preguntas": "PE-11, PE-12"}, {"id": "ATR-024", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-02 Productiva", "nombre": "Unidad de Producción Base Concertada (Anexo 1)", "naturaleza": "Categoría / Texto", "grano": "Sede / Sector", "frecuencia": "Anual / Concertada", "fuente": "Matriz Anexo 1 IDAE", "sistema": "Herramienta Web GAE", "area": "Equipo IDAE", "acceso": "Formulario Web", "estado": "DATO VALIDADO", "llave": "Proceso / Sector", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-02, PE-15"}, {"id": "ATR-025", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-02 Productiva", "nombre": "Nombre / Descripción Proceso Productivo Principal", "naturaleza": "Texto (Proceso)", "grano": "Sede", "frecuencia": "Anual", "fuente": "Diagnóstico Técnico SEGAE", "sistema": "Herramienta Web GAE", "area": "Equipo Técnico SEGAE", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Sede / Proceso", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-02"}, {"id": "ATR-026", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-02 Productiva", "nombre": "Horarios de Operación y Turnos (Horas/Día, Días/Semana)", "naturaleza": "Texto / Alfanumérico", "grano": "Sede", "frecuencia": "Anual", "fuente": "Diagnóstico Técnico SEGAE", "sistema": "Herramienta Web GAE", "area": "Equipo Técnico SEGAE", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Sede / Horario", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-02"}, {"id": "ATR-027", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-02 Productiva", "nombre": "Capacidad Instalada de Planta", "naturaleza": "Numérico Decimal + Unidad", "grano": "Sede", "frecuencia": "Anual", "fuente": "Diagnóstico Técnico SEGAE", "sistema": "Herramienta Web GAE", "area": "Equipo Técnico SEGAE", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Sede / Capacidad", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-02"}, {"id": "ATR-028", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-02 Productiva", "nombre": "Área Total Construida de la Sede (m2)", "naturaleza": "Numérico Decimal", "grano": "Sede", "frecuencia": "Anual", "fuente": "Levantamiento Predial / Recibo", "sistema": "Herramienta Web GAE", "area": "Equipo Técnico SEGAE", "acceso": "Formulario Web", "estado": "DATO VALIDADO", "llave": "Sede / Área", "replica": "Sí (Rentas SDH)", "grupo": "Grupo Fiscal", "preguntas": "PE-02, PE-05"}, {"id": "ATR-029", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-02 Productiva", "nombre": "Área Destinada a Proceso Productivo (m2)", "naturaleza": "Numérico Decimal", "grano": "Sede", "frecuencia": "Anual", "fuente": "Levantamiento Predial / Planta", "sistema": "Herramienta Web GAE", "area": "Equipo Técnico SEGAE", "acceso": "Formulario Web", "estado": "DATO VALIDADO", "llave": "Sede / Área", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-02, PE-05"}, {"id": "ATR-030", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-03 Hídrico", "nombre": "Número Cuenta Contrato Acueducto Principal", "naturaleza": "Alfanumérico (Cuenta)", "grano": "Cuenta / Servicio", "frecuencia": "Anual", "fuente": "Factura EAAB", "sistema": "Herramienta Web GAE", "area": "Equipo Auditor SEGAE", "acceso": "Formulario Web", "estado": "DATO VALIDADO", "llave": "Cuenta Contrato", "replica": "Sí (EAAB)", "grupo": "Grupo Operativo", "preguntas": "PE-01, PE-08"}, {"id": "ATR-031", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-03 Hídrico", "nombre": "Presencia de Pozos Subterráneos Concesionados (Sí/No)", "naturaleza": "Booleano (Flag)", "grano": "Sede", "frecuencia": "Anual", "fuente": "Radicado Concesión SDA", "sistema": "Herramienta Web GAE", "area": "Equipo Auditor SEGAE", "acceso": "Formulario Web", "estado": "DATO VALIDADO", "llave": "Sede / Pozo", "replica": "Sí (RUA)", "grupo": "Grupo Operativo", "preguntas": "PE-01, PE-08"}, {"id": "ATR-032", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-04 Energía", "nombre": "Número Cuenta Contrato Energía Eléctrica (Enel)", "naturaleza": "Alfanumérico (Cuenta)", "grano": "Cuenta / Servicio", "frecuencia": "Anual", "fuente": "Factura Enel Codensa", "sistema": "Herramienta Web GAE", "area": "Equipo Auditor SEGAE", "acceso": "Formulario Web", "estado": "DATO VALIDADO", "llave": "Cuenta Contrato", "replica": "Sí (Enel)", "grupo": "Grupo Operativo", "preguntas": "PE-01, PE-08"}, {"id": "ATR-033", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-04 Energía", "nombre": "Número Cuenta Contrato Gas Natural (Vanti)", "naturaleza": "Alfanumérico (Cuenta)", "grano": "Cuenta / Servicio", "frecuencia": "Anual", "fuente": "Factura Vanti", "sistema": "Herramienta Web GAE", "area": "Equipo Auditor SEGAE", "acceso": "Formulario Web", "estado": "DATO VALIDADO", "llave": "Cuenta Contrato", "replica": "Sí (Vanti)", "grupo": "Grupo Operativo", "preguntas": "PE-01, PE-08"}, {"id": "ATR-034", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-05 RESPEL", "nombre": "Listado Corrientes de RESPEL Generadas (Código Y/A)", "naturaleza": "Alfanumérico Multi-código", "grano": "Sede", "frecuencia": "Anual", "fuente": "Diagnóstico RESPEL / RUA", "sistema": "Herramienta Web GAE", "area": "Equipo RESPEL SEGAE", "acceso": "Formulario Web", "estado": "DATO VALIDADO", "llave": "Sede / Corriente", "replica": "Sí (RUA)", "grupo": "Grupo Operativo", "preguntas": "PE-03"}, {"id": "ATR-035", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-06 SGA/DGA", "nombre": "Estado de Conformación Legal del DGA (Sí/No/Exento)", "naturaleza": "Categoría / Texto", "grano": "Empresa", "frecuencia": "Anual", "fuente": "Acto Administrativo / Portal DGA", "sistema": "Portal DGA / GAE", "area": "Equipo DGA SEGAE", "acceso": "Formulario / BBDD", "estado": "DATO VALIDADO", "llave": "Empresa / DGA", "replica": "Sí (DGA)", "grupo": "Grupo General", "preguntas": "PE-06, PE-07"}, {"id": "ATR-036", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-06 SGA/DGA", "nombre": "Número Radicado Inscripción DGA ante la SDA", "naturaleza": "Alfanumérico (Radicado)", "grano": "Empresa", "frecuencia": "Única", "fuente": "Portal DGA / Ventanilla Virtual", "sistema": "Portal DGA", "area": "Equipo DGA SEGAE", "acceso": "Consulta BBDD", "estado": "DATO VALIDADO", "llave": "Empresa / Radicado", "replica": "Sí (DGA)", "grupo": "Grupo General", "preguntas": "PE-07"}, {"id": "ATR-037", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-06 SGA/DGA", "nombre": "Acreditación / Certificación ONAC Vigente (Sí/No)", "naturaleza": "Booleano (Flag)", "grano": "Sede", "frecuencia": "Anual", "fuente": "Certificado ONAC en PDF", "sistema": "Herramienta Web GAE", "area": "Equipo PREAD SEGAE", "acceso": "Formulario Web", "estado": "DATO VALIDADO", "llave": "Sede / ONAC", "replica": "No", "grupo": "Grupo General", "preguntas": "PE-06"}, {"id": "ATR-038", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-07 Proyectos", "nombre": "Antecedentes de Proyectos Ambientales Previos (Sí/No)", "naturaleza": "Booleano (Flag)", "grano": "Sede", "frecuencia": "Anual", "fuente": "Ficha Histórica GAE", "sistema": "Herramienta Web GAE", "area": "Equipo Proyectos SEGAE", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Sede / Proyecto", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-08"}, {"id": "ATR-039", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-08 Legalidad", "nombre": "Concepto Uso de Suelo Estado (Permitido/Restringido/Prohibido)", "naturaleza": "Categoría / Texto", "grano": "Predio", "frecuencia": "Anual", "fuente": "Concepto SDP / Curadurías / SINUPOT", "sistema": "SINUPOT / GAE", "area": "Equipo Ecourbanismo", "acceso": "Interoperabilidad SINUPOT", "estado": "DATO VALIDADO", "llave": "Predio / Suelo", "replica": "Sí (SINUPOT)", "grupo": "Grupo Fiscal", "preguntas": "PE-05, PE-13"}, {"id": "ATR-040", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-08 Legalidad", "nombre": "Número Radicado Concepto Uso de Suelo SDP", "naturaleza": "Alfanumérico (Radicado)", "grano": "Predio", "frecuencia": "Única", "fuente": "Documento SDP / Curaduría", "sistema": "Herramienta Web GAE", "area": "Equipo Ecourbanismo", "acceso": "Formulario Web", "estado": "DATO VALIDADO", "llave": "Predio / Radicado", "replica": "No", "grupo": "Grupo Fiscal", "preguntas": "PE-13"}, {"id": "ATR-041", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-08 Legalidad", "nombre": "Concepto Sanitario Vigente SDS (Favorable/Inconforme)", "naturaleza": "Categoría / Texto", "grano": "Sede", "frecuencia": "Anual", "fuente": "Concepto Sec. Salud (SDS)", "sistema": "Herramienta Web GAE", "area": "Equipo Técnico SEGAE", "acceso": "Formulario Web", "estado": "DATO VALIDADO", "llave": "Sede / Salud", "replica": "No", "grupo": "Grupo General", "preguntas": "PE-05, PE-13"}, {"id": "ATR-042", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-08 Legalidad", "nombre": "Permiso de Vertimientos Estado (Vigente/En Trámite/No Requiere)", "naturaleza": "Categoría / Texto", "grano": "Sede", "frecuencia": "Anual", "fuente": "Resolución Vertimientos SDA", "sistema": "Expediente SDA / Forest", "area": "Equipo Vertimientos", "acceso": "Consulta BBDD Forest", "estado": "DATO VALIDADO", "llave": "Sede / Vertimiento", "replica": "Sí (RUA)", "grupo": "Grupo Técnico", "preguntas": "PE-13"}, {"id": "ATR-043", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-09 Soportes", "nombre": "Soporte PDF Concepto Uso de Suelo SDP Adjunto", "naturaleza": "Documental (PDF)", "grano": "Predio", "frecuencia": "Única", "fuente": "PDF SDP / Curaduría", "sistema": "Repositorio Forest / GAE", "area": "Equipo Ecourbanismo", "acceso": "Visor Documental", "estado": "DATO VALIDADO", "llave": "Documento ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-10, PE-13"}, {"id": "ATR-044", "eslabon": "E2 · Caracterización y Diagnóstico Predial", "campo": "CA-09 Soportes", "nombre": "Soporte PDF Concepto Sanitario SDS Adjunto", "naturaleza": "Documental (PDF)", "grano": "Sede", "frecuencia": "Anual", "fuente": "PDF Sec. Salud", "sistema": "Repositorio Forest / GAE", "area": "Equipo Técnico SEGAE", "acceso": "Visor Documental", "estado": "DATO VALIDADO", "llave": "Documento ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-10, PE-13"}, {"id": "ATR-045", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-01 Predial", "nombre": "Dirección Específica Punto de Medición / Medidor", "naturaleza": "Texto (Dirección)", "grano": "Medidor", "frecuencia": "Mensual", "fuente": "Factura / Medidor Físico", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Medidor ID", "replica": "No", "grupo": "Grupo Operativo", "preguntas": "PE-01"}, {"id": "ATR-046", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-01 Predial", "nombre": "Ubicación Interna del Medidor en Planta", "naturaleza": "Texto (Descriptivo)", "grano": "Medidor", "frecuencia": "Única", "fuente": "Planta / Formulario", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Medidor ID", "replica": "No", "grupo": "Grupo Operativo", "preguntas": "PE-01"}, {"id": "ATR-047", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-02 Productiva", "nombre": "Valor Mensual Medido de Unidad de Producción Enero-Diciembre", "naturaleza": "Numérico Decimal (12 Meses)", "grano": "Sede / Mes", "frecuencia": "Mensual", "fuente": "Planilla Producción / ERP", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Formulario Web / Excel", "estado": "DATO ORIGINAL", "llave": "Sede / Mes", "replica": "No", "grupo": "Grupo Operativo", "preguntas": "PE-02, PE-15"}, {"id": "ATR-048", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-02 Productiva", "nombre": "Total Anual Consolidado Unidad de Producción", "naturaleza": "Numérico Decimal (Sumatoria)", "grano": "Sede / Año", "frecuencia": "Anual", "fuente": "Cálculo Automático GAE", "sistema": "Herramienta Web GAE", "area": "Equipo IDAE", "acceso": "Cálculo Automático", "estado": "DATO HOMOLOGADO", "llave": "Sede / Año", "replica": "No", "grupo": "Grupo Analítico", "preguntas": "PE-02, PE-15"}, {"id": "ATR-049", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-02 Productiva", "nombre": "Unidad de Medida de Producción (Ton/m3/Personas/Atenciones)", "naturaleza": "Texto / Categoría", "grano": "Sede / Sector", "frecuencia": "Anual", "fuente": "Anexo 1 IDAE", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Formulario Web", "estado": "DATO VALIDADO", "llave": "Proceso / Sector", "replica": "No", "grupo": "Grupo Operativo", "preguntas": "PE-02"}, {"id": "ATR-050", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-02 Productiva", "nombre": "Observaciones de Variación de Producción Mensual", "naturaleza": "Texto (Observaciones)", "grano": "Sede / Mes", "frecuencia": "Eventual", "fuente": "Aclaración Empresa", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Sede / Mes", "replica": "No", "grupo": "Grupo Operativo", "preguntas": "PE-02"}, {"id": "ATR-051", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-03 Hídrico", "nombre": "m3 Agua Acueducto Facturados Mensual (12 Meses)", "naturaleza": "Numérico Decimal", "grano": "Factura / Mes", "frecuencia": "Mensual / Bimensual", "fuente": "Factura EAAB", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Carga PDF / Excel", "estado": "DATO ORIGINAL", "llave": "Cuenta / Periodo", "replica": "Sí (RUA)", "grupo": "Grupo Operativo", "preguntas": "PE-01, PE-02"}, {"id": "ATR-052", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-03 Hídrico", "nombre": "Fecha Inicio Periodo Facturado Acueducto", "naturaleza": "Fecha (YYYY-MM-DD)", "grano": "Factura", "frecuencia": "Mensual / Bimensual", "fuente": "Factura EAAB", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Factura ID", "replica": "No", "grupo": "Grupo Operativo", "preguntas": "PE-01"}, {"id": "ATR-053", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-03 Hídrico", "nombre": "Fecha Fin Periodo Facturado Acueducto", "naturaleza": "Fecha (YYYY-MM-DD)", "grano": "Factura", "frecuencia": "Mensual / Bimensual", "fuente": "Factura EAAB", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Factura ID", "replica": "No", "grupo": "Grupo Operativo", "preguntas": "PE-01"}, {"id": "ATR-054", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-03 Hídrico", "nombre": "Días Efectivos de Servicio Facturados Acueducto", "naturaleza": "Numérico Entero (Días)", "grano": "Factura", "frecuencia": "Mensual / Bimensual", "fuente": "Cálculo (FechaFin - FechaInicio)", "sistema": "Herramienta Web GAE", "area": "Motor BD GAE", "acceso": "Cálculo Automático", "estado": "DATO HOMOLOGADO", "llave": "Factura ID", "replica": "No", "grupo": "Grupo Analítico", "preguntas": "PE-01"}, {"id": "ATR-055", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-03 Hídrico", "nombre": "m3 Agua Comprada por Carrotanque Mensual", "naturaleza": "Numérico Decimal", "grano": "Compra / Mes", "frecuencia": "Eventual / Mensual", "fuente": "Factura Carrotanque", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Carga PDF / Excel", "estado": "DATO ORIGINAL", "llave": "Compra ID", "replica": "No", "grupo": "Grupo Operativo", "preguntas": "PE-01"}, {"id": "ATR-056", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-03 Hídrico", "nombre": "Fecha de Compra / Viaje Carrotanque", "naturaleza": "Fecha (YYYY-MM-DD)", "grano": "Compra", "frecuencia": "Eventual", "fuente": "Factura Carrotanque", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Compra ID", "replica": "No", "grupo": "Grupo Operativo", "preguntas": "PE-01"}, {"id": "ATR-057", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-03 Hídrico", "nombre": "m3 Agua Subterránea Extraída Pozo Trimestral", "naturaleza": "Numérico Decimal (4 Trimestres)", "grano": "Pozo / Trimestre", "frecuencia": "Trimestral", "fuente": "Reporte Radicado SDA", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Pozo / Trimestre", "replica": "Sí (RUA)", "grupo": "Grupo Operativo", "preguntas": "PE-01, PE-08"}, {"id": "ATR-058", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-03 Hídrico", "nombre": "Número Radicado Reporte Trimestral Pozo ante SDA", "naturaleza": "Alfanumérico (Radicado)", "grano": "Pozo / Trimestre", "frecuencia": "Trimestral", "fuente": "Radicado SDA", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Formulario Web", "estado": "DATO VALIDADO", "llave": "Pozo / Radicado", "replica": "Sí (RUA)", "grupo": "Grupo Operativo", "preguntas": "PE-01, PE-08"}, {"id": "ATR-059", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-04 Energía", "nombre": "kWh Energía Activa Facturada Mensual (12 Meses)", "naturaleza": "Numérico Decimal", "grano": "Factura / Mes", "frecuencia": "Mensual", "fuente": "Factura Enel Codensa", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Carga PDF / Excel", "estado": "DATO ORIGINAL", "llave": "Cuenta / Periodo", "replica": "Sí (RUA)", "grupo": "Grupo Operativo", "preguntas": "PE-01, PE-02"}, {"id": "ATR-060", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-04 Energía", "nombre": "Fecha Inicio Periodo Facturado Energía Eléctrica", "naturaleza": "Fecha (YYYY-MM-DD)", "grano": "Factura", "frecuencia": "Mensual", "fuente": "Factura Enel Codensa", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Factura ID", "replica": "No", "grupo": "Grupo Operativo", "preguntas": "PE-01"}, {"id": "ATR-061", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-04 Energía", "nombre": "Fecha Fin Periodo Facturado Energía Eléctrica", "naturaleza": "Fecha (YYYY-MM-DD)", "grano": "Factura", "frecuencia": "Mensual", "fuente": "Factura Enel Codensa", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Factura ID", "replica": "No", "grupo": "Grupo Operativo", "preguntas": "PE-01"}, {"id": "ATR-062", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-04 Energía", "nombre": "m3 Gas Natural Facturados Factura (Con Factor Corrección)", "naturaleza": "Numérico Decimal", "grano": "Factura / Mes", "frecuencia": "Mensual", "fuente": "Factura Vanti", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Carga PDF / Excel", "estado": "DATO ORIGINAL", "llave": "Cuenta / Periodo", "replica": "Sí (RUA)", "grupo": "Grupo Operativo", "preguntas": "PE-01, PE-02"}, {"id": "ATR-063", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-04 Energía", "nombre": "Fecha Inicio y Fin Periodo Facturado Gas Natural", "naturaleza": "Rango Fechas", "grano": "Factura", "frecuencia": "Mensual", "fuente": "Factura Vanti", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Factura ID", "replica": "No", "grupo": "Grupo Operativo", "preguntas": "PE-01"}, {"id": "ATR-064", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-04 Energía", "nombre": "Galones ACPM Consumidos Fuentes Fijas / Móviles", "naturaleza": "Numérico Decimal", "grano": "Compra / Mes", "frecuencia": "Mensual / Eventual", "fuente": "Factura ACPM", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Formulario Web / Excel", "estado": "DATO ORIGINAL", "llave": "Compra ID", "replica": "Sí (RUA)", "grupo": "Grupo Operativo", "preguntas": "PE-01, PE-09"}, {"id": "ATR-065", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-04 Energía", "nombre": "Galones Gasolina Consumidos Flotas Vehiculares (>=10 veh)", "naturaleza": "Numérico Decimal", "grano": "Compra / Mes", "frecuencia": "Mensual / Eventual", "fuente": "Factura Gasolina", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Formulario Web / Excel", "estado": "DATO ORIGINAL", "llave": "Compra ID", "replica": "Sí (RUA)", "grupo": "Grupo Operativo", "preguntas": "PE-01, PE-09"}, {"id": "ATR-066", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-04 Energía", "nombre": "Kilómetros Recorridos Totales Flota Vehicular Mensual", "naturaleza": "Numérico Decimal (Km)", "grano": "Flota / Mes", "frecuencia": "Mensual", "fuente": "Planilla Flota / GPS", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Flota / Mes", "replica": "No", "grupo": "Grupo Operativo", "preguntas": "PE-09"}, {"id": "ATR-067", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-04 Energía", "nombre": "Consumo Combustible Fieltro Carbón / GLP (kg o m3)", "naturaleza": "Numérico Decimal", "grano": "Compra / Mes", "frecuencia": "Mensual / Eventual", "fuente": "Factura Carbón/GLP", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Compra ID", "replica": "Sí (RUA)", "grupo": "Grupo Operativo", "preguntas": "PE-01"}, {"id": "ATR-068", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-05 RESPEL", "nombre": "Kilogramos RESPEL Generados y Dispuestos por Acta", "naturaleza": "Numérico Decimal (kg)", "grano": "Acta / Residuo", "frecuencia": "Eventual / Mensual", "fuente": "Acta Gestor Autorizado", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Formulario Web / Excel", "estado": "DATO ORIGINAL", "llave": "Acta / Residuo", "replica": "Sí (RUA)", "grupo": "Grupo Operativo", "preguntas": "PE-03"}, {"id": "ATR-069", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-05 RESPEL", "nombre": "Número de Acta de Disposición Final RESPEL", "naturaleza": "Alfanumérico (No. Acta)", "grano": "Acta", "frecuencia": "Eventual", "fuente": "Acta Gestor Autorizado", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Acta ID", "replica": "Sí (RUA)", "grupo": "Grupo Operativo", "preguntas": "PE-03"}, {"id": "ATR-070", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-05 RESPEL", "nombre": "Tipo / Corriente de Residuo Peligroso (Aceites/RAEE/Baterías)", "naturaleza": "Categoría / Texto", "grano": "Acta / Residuo", "frecuencia": "Eventual", "fuente": "Acta Gestor Autorizado", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Formulario Web", "estado": "DATO VALIDADO", "llave": "Residuo ID", "replica": "Sí (RUA)", "grupo": "Grupo Operativo", "preguntas": "PE-03"}, {"id": "ATR-071", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-05 RESPEL", "nombre": "Nombre / NIT Gestor Autorizado Revisor del Acta", "naturaleza": "Texto / NIT", "grano": "Gestor", "frecuencia": "Eventual", "fuente": "Acta Gestor Autorizado", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Formulario Web", "estado": "DATO VALIDADO", "llave": "Gestor (NIT)", "replica": "Sí (RUA)", "grupo": "Grupo Operativo", "preguntas": "PE-03"}, {"id": "ATR-072", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-05 RESPEL", "nombre": "Fecha de Recolección / Entrega RESPEL", "naturaleza": "Fecha (YYYY-MM-DD)", "grano": "Acta", "frecuencia": "Eventual", "fuente": "Acta Gestor Autorizado", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Acta ID", "replica": "No", "grupo": "Grupo Operativo", "preguntas": "PE-03"}, {"id": "ATR-073", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-05 RESPEL", "nombre": "Conversión Aplicada Aceite Usado (3.78 kg/galón)", "naturaleza": "Numérico Decimal (Factor)", "grano": "Acta / Residuo", "frecuencia": "Eventual", "fuente": "Cálculo Automático GAE", "sistema": "Herramienta Web GAE", "area": "Motor BD GAE", "acceso": "Cálculo Automático", "estado": "DATO HOMOLOGADO", "llave": "Residuo ID", "replica": "No", "grupo": "Grupo Analítico", "preguntas": "PE-03"}, {"id": "ATR-074", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-05 RESPEL", "nombre": "Registro de Agrupación Varios para >30 Actas", "naturaleza": "Booleano + Texto Varios", "grano": "Sede / Año", "frecuencia": "Anual", "fuente": "Formulario Web / Excel Consol.", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Sede / Año", "replica": "No", "grupo": "Grupo Operativo", "preguntas": "PE-03"}, {"id": "ATR-075", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-06 SGA/DGA", "nombre": "Porcentaje de Avance Implementación SGA Autodeclarado", "naturaleza": "Numérico Porcentaje (0-100%)", "grano": "Sede / Año", "frecuencia": "Anual", "fuente": "Formulario Web GAE", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Sede / SGA", "replica": "No", "grupo": "Grupo Operativo", "preguntas": "PE-06"}, {"id": "ATR-076", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-07 Proyectos", "nombre": "Reporte Medidas PML Implementadas en el Periodo (Sí/No)", "naturaleza": "Booleano (Flag)", "grano": "Sede / Año", "frecuencia": "Anual", "fuente": "Formulario Proyectos GAE", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Sede / Proyecto", "replica": "No", "grupo": "Grupo Operativo", "preguntas": "PE-07, PE-08"}, {"id": "ATR-077", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-07 Proyectos", "nombre": "Nombre / Título de la Buena Práctica / Caso Exitoso", "naturaleza": "Texto (Título)", "grano": "Proyecto", "frecuencia": "Anual", "fuente": "Formulario Proyectos GAE", "sistema": "Herramienta Web GAE", "area": "Empresa Reportante", "acceso": "Formulario Web", "estado": "DATO ORIGINAL", "llave": "Proyecto ID", "replica": "No", "grupo": "Grupo Operativo", "preguntas": "PE-08"}, {"id": "ATR-078", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-09 Soportes", "nombre": "Archivos PDF Facturas Acueducto Cargados (Carpeta ZIP)", "naturaleza": "Documental (PDF/ZIP)", "grano": "Factura", "frecuencia": "Anual", "fuente": "Facturas Originales EAAB", "sistema": "Repositorio Forest / GAE", "area": "Empresa Reportante", "acceso": "Carga Archivo Web", "estado": "DATO ORIGINAL", "llave": "Documento ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-10"}, {"id": "ATR-079", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-09 Soportes", "nombre": "Archivos PDF Facturas Energía Eléctrica Cargados (Carpeta ZIP)", "naturaleza": "Documental (PDF/ZIP)", "grano": "Factura", "frecuencia": "Anual", "fuente": "Facturas Originales Enel", "sistema": "Repositorio Forest / GAE", "area": "Empresa Reportante", "acceso": "Carga Archivo Web", "estado": "DATO ORIGINAL", "llave": "Documento ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-10"}, {"id": "ATR-080", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-09 Soportes", "nombre": "Archivos PDF Facturas Gas / Combustibles Cargados (Carpeta ZIP)", "naturaleza": "Documental (PDF/ZIP)", "grano": "Factura", "frecuencia": "Anual", "fuente": "Facturas Originales Vanti/Comb", "sistema": "Repositorio Forest / GAE", "area": "Empresa Reportante", "acceso": "Carga Archivo Web", "estado": "DATO ORIGINAL", "llave": "Documento ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-10"}, {"id": "ATR-081", "eslabon": "E3 · Captura y Registro de Mediciones", "campo": "CA-09 Soportes", "nombre": "Archivos PDF Actas Disposición Final RESPEL Cargados (Carpeta ZIP)", "naturaleza": "Documental (PDF/ZIP)", "grano": "Acta", "frecuencia": "Anual", "fuente": "Actas Originales Gestor", "sistema": "Repositorio Forest / GAE", "area": "Empresa Reportante", "acceso": "Carga Archivo Web", "estado": "DATO ORIGINAL", "llave": "Documento ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-10"}, {"id": "ATR-082", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-01 Predial", "nombre": "Verificación Dirección Predial durante Tutoría Presencial/Virtual", "naturaleza": "Booleano + Texto", "grano": "Sede", "frecuencia": "En Acompañamiento", "fuente": "Informe Tutor ACERCAR", "sistema": "Herramienta Web GAE", "area": "Tutor Asignado SEGAE", "acceso": "Formulario Tutor", "estado": "DATO VALIDADO", "llave": "Sede / Tutoría", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-11"}, {"id": "ATR-083", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-02 Productiva", "nombre": "Diagnóstico de Ineficiencias Físicas en Proceso Productivo", "naturaleza": "Texto (Diagnóstico)", "grano": "Sede / Proceso", "frecuencia": "En Acompañamiento", "fuente": "Informe Diagnóstico Tutor", "sistema": "Herramienta Web GAE", "area": "Tutor Asignado SEGAE", "acceso": "Formulario Tutor", "estado": "DATO VALIDADO", "llave": "Sede / Proceso", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-02"}, {"id": "ATR-084", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-02 Productiva", "nombre": "Validación / Ajuste de la Unidad de Producción Sectorial", "naturaleza": "Texto / Categoría", "grano": "Sede / Sector", "frecuencia": "En Acompañamiento", "fuente": "Acta Concertación Tutoría", "sistema": "Herramienta Web GAE", "area": "Tutor Asignado SEGAE", "acceso": "Formulario Tutor", "estado": "DATO VALIDADO", "llave": "Proceso / Sector", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-02"}, {"id": "ATR-085", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-03 Hídrico", "nombre": "Oportunidades Ahorro Agua Identificadas (m3/año estimados)", "naturaleza": "Numérico Decimal", "grano": "Sede / Proyecto", "frecuencia": "En Acompañamiento", "fuente": "Plan de Acción ACERCAR", "sistema": "Herramienta Web GAE", "area": "Tutor Asignado SEGAE", "acceso": "Formulario Tutor", "estado": "DATO VALIDADO", "llave": "Sede / Proyecto", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-01, PE-08"}, {"id": "ATR-086", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-03 Hídrico", "nombre": "Recomendación Medidores Internos de Agua (Si aplica)", "naturaleza": "Texto / Recomendación", "grano": "Sede", "frecuencia": "En Acompañamiento", "fuente": "Informe Tutor ACERCAR", "sistema": "Herramienta Web GAE", "area": "Tutor Asignado SEGAE", "acceso": "Formulario Tutor", "estado": "DATO VALIDADO", "llave": "Sede / Medidor", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-01"}, {"id": "ATR-087", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-03 Hídrico", "nombre": "Evaluación Pérdidas y Fugas en Red Interna Agua", "naturaleza": "Texto (Diagnóstico)", "grano": "Sede", "frecuencia": "En Acompañamiento", "fuente": "Informe Tutor ACERCAR", "sistema": "Herramienta Web GAE", "area": "Tutor Asignado SEGAE", "acceso": "Formulario Tutor", "estado": "DATO VALIDADO", "llave": "Sede / Red", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-01"}, {"id": "ATR-088", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-03 Hídrico", "nombre": "Línea Base Consumo Hídrico Validada por Tutor", "naturaleza": "Numérico Decimal (m3/año)", "grano": "Sede / Año", "frecuencia": "En Acompañamiento", "fuente": "Informe Tutor ACERCAR", "sistema": "Herramienta Web GAE", "area": "Tutor Asignado SEGAE", "acceso": "Formulario Tutor", "estado": "DATO VALIDADO", "llave": "Sede / Año", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-01, PE-02"}, {"id": "ATR-089", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-04 Energía", "nombre": "Oportunidades Eficiencia Energética Identificadas (kWh/año)", "naturaleza": "Numérico Decimal", "grano": "Sede / Proyecto", "frecuencia": "En Acompañamiento", "fuente": "Plan de Acción ACERCAR", "sistema": "Herramienta Web GAE", "area": "Tutor Asignado SEGAE", "acceso": "Formulario Tutor", "estado": "DATO VALIDADO", "llave": "Sede / Proyecto", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-01, PE-08"}, {"id": "ATR-090", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-04 Energía", "nombre": "Evaluación Factor de Potencia / Energía Reactiva", "naturaleza": "Numérico Decimal / Texto", "grano": "Sede", "frecuencia": "En Acompañamiento", "fuente": "Informe Tutor ACERCAR", "sistema": "Herramienta Web GAE", "area": "Tutor Asignado SEGAE", "acceso": "Formulario Tutor", "estado": "DATO VALIDADO", "llave": "Sede / Energía", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-01"}, {"id": "ATR-091", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-04 Energía", "nombre": "Diagnóstico Eficiencia en Fuentes Fijas / Mantenimiento", "naturaleza": "Texto (Diagnóstico)", "grano": "Sede / Fuente", "frecuencia": "En Acompañamiento", "fuente": "Informe Tutor ACERCAR", "sistema": "Herramienta Web GAE", "area": "Tutor Asignado SEGAE", "acceso": "Formulario Tutor", "estado": "DATO VALIDADO", "llave": "Fuente ID", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-01"}, {"id": "ATR-092", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-04 Energía", "nombre": "Línea Base Consumo Energético Validada por Tutor", "naturaleza": "Numérico Decimal (kWh/año)", "grano": "Sede / Año", "frecuencia": "En Acompañamiento", "fuente": "Informe Tutor ACERCAR", "sistema": "Herramienta Web GAE", "area": "Tutor Asignado SEGAE", "acceso": "Formulario Tutor", "estado": "DATO VALIDADO", "llave": "Sede / Año", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-01, PE-02"}, {"id": "ATR-093", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-05 RESPEL", "nombre": "Oportunidades Reducción RESPEL Identificadas (kg/año)", "naturaleza": "Numérico Decimal", "grano": "Sede / Proyecto", "frecuencia": "En Acompañamiento", "fuente": "Plan de Acción ACERCAR", "sistema": "Herramienta Web GAE", "area": "Tutor Asignado SEGAE", "acceso": "Formulario Tutor", "estado": "DATO VALIDADO", "llave": "Sede / Proyecto", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-03"}, {"id": "ATR-094", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-05 RESPEL", "nombre": "Verificación Almacenamiento Temporal RESPEL en Planta", "naturaleza": "Categoría (Conforme/Inconforme)", "grano": "Sede", "frecuencia": "En Acompañamiento", "fuente": "Informe Tutor ACERCAR", "sistema": "Herramienta Web GAE", "area": "Tutor Asignado SEGAE", "acceso": "Formulario Tutor", "estado": "DATO VALIDADO", "llave": "Sede / RESPEL", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-03"}, {"id": "ATR-095", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-05 RESPEL", "nombre": "Línea Base Generación RESPEL Validada por Tutor", "naturaleza": "Numérico Decimal (kg/año)", "grano": "Sede / Año", "frecuencia": "En Acompañamiento", "fuente": "Informe Tutor ACERCAR", "sistema": "Herramienta Web GAE", "area": "Tutor Asignado SEGAE", "acceso": "Formulario Tutor", "estado": "DATO VALIDADO", "llave": "Sede / Año", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-03"}, {"id": "ATR-096", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-06 SGA/DGA", "nombre": "Avance Etapa 1 ACERCAR: Sensibilización y Compromiso", "naturaleza": "Numérico Porcentaje (0-100%)", "grano": "Sede / Etapa", "frecuencia": "En Acompañamiento (10 Meses)", "fuente": "Informe Etapa 1 Tutor", "sistema": "Herramienta Web GAE", "area": "Tutor Asignado SEGAE", "acceso": "Formulario Tutor", "estado": "DATO VALIDADO", "llave": "Sede / Etapa", "replica": "No", "grupo": "Grupo General", "preguntas": "PE-06"}, {"id": "ATR-097", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-06 SGA/DGA", "nombre": "Avance Etapa 2 ACERCAR: Diagnóstico Ambiental", "naturaleza": "Numérico Porcentaje (0-100%)", "grano": "Sede / Etapa", "frecuencia": "En Acompañamiento (10 Meses)", "fuente": "Informe Etapa 2 Tutor", "sistema": "Herramienta Web GAE", "area": "Tutor Asignado SEGAE", "acceso": "Formulario Tutor", "estado": "DATO VALIDADO", "llave": "Sede / Etapa", "replica": "No", "grupo": "Grupo General", "preguntas": "PE-06"}, {"id": "ATR-098", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-06 SGA/DGA", "nombre": "Avance Etapa 3 ACERCAR: Formulación Plan Acción", "naturaleza": "Numérico Porcentaje (0-100%)", "grano": "Sede / Etapa", "frecuencia": "En Acompañamiento (10 Meses)", "fuente": "Informe Etapa 3 Tutor", "sistema": "Herramienta Web GAE", "area": "Tutor Asignado SEGAE", "acceso": "Formulario Tutor", "estado": "DATO VALIDADO", "llave": "Sede / Etapa", "replica": "No", "grupo": "Grupo General", "preguntas": "PE-06"}, {"id": "ATR-099", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-06 SGA/DGA", "nombre": "Avance Etapa 4 ACERCAR: Evaluación y Resultados", "naturaleza": "Numérico Porcentaje (0-100%)", "grano": "Sede / Etapa", "frecuencia": "En Acompañamiento (10 Meses)", "fuente": "Informe Etapa 4 Tutor", "sistema": "Herramienta Web GAE", "area": "Tutor Asignado SEGAE", "acceso": "Formulario Tutor", "estado": "DATO VALIDADO", "llave": "Sede / Etapa", "replica": "No", "grupo": "Grupo General", "preguntas": "PE-06"}, {"id": "ATR-100", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-07 Proyectos", "nombre": "Estructuración Proyecto Ahorro Agua (Memoria Técnica)", "naturaleza": "Texto (Ficha Proyecto)", "grano": "Proyecto", "frecuencia": "En Acompañamiento", "fuente": "Ficha Proyecto ACERCAR", "sistema": "Herramienta Web GAE", "area": "Tutor Asignado SEGAE", "acceso": "Formulario Tutor", "estado": "DATO VALIDADO", "llave": "Proyecto ID", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-07, PE-08"}, {"id": "ATR-101", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-07 Proyectos", "nombre": "Estructuración Proyecto Eficiencia Energética", "naturaleza": "Texto (Ficha Proyecto)", "grano": "Proyecto", "frecuencia": "En Acompañamiento", "fuente": "Ficha Proyecto ACERCAR", "sistema": "Herramienta Web GAE", "area": "Tutor Asignado SEGAE", "acceso": "Formulario Tutor", "estado": "DATO VALIDADO", "llave": "Proyecto ID", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-07, PE-08"}, {"id": "ATR-102", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-07 Proyectos", "nombre": "Estructuración Proyecto Sustitución Materiales / Circular", "naturaleza": "Texto (Ficha Proyecto)", "grano": "Proyecto", "frecuencia": "En Acompañamiento", "fuente": "Ficha Proyecto ACERCAR", "sistema": "Herramienta Web GAE", "area": "Tutor Asignado SEGAE", "acceso": "Formulario Tutor", "estado": "DATO VALIDADO", "llave": "Proyecto ID", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-07, PE-08"}, {"id": "ATR-103", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-07 Proyectos", "nombre": "Estimación de Inversión Requerida en Proyecto COP", "naturaleza": "Moneda (COP)", "grano": "Proyecto", "frecuencia": "En Acompañamiento", "fuente": "Ficha Proyecto ACERCAR", "sistema": "Herramienta Web GAE", "area": "Tutor Asignado SEGAE", "acceso": "Formulario Tutor", "estado": "DATO VALIDADO", "llave": "Proyecto ID", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-04, PE-07"}, {"id": "ATR-104", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-07 Proyectos", "nombre": "Estimación de Retorno Inversión (Meses Payback)", "naturaleza": "Numérico Entero (Meses)", "grano": "Proyecto", "frecuencia": "En Acompañamiento", "fuente": "Ficha Proyecto ACERCAR", "sistema": "Herramienta Web GAE", "area": "Tutor Asignado SEGAE", "acceso": "Formulario Tutor", "estado": "DATO VALIDADO", "llave": "Proyecto ID", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-07"}, {"id": "ATR-105", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-07 Proyectos", "nombre": "Acompañamiento en Guía Formulación Transición Energética", "naturaleza": "Booleano (Flag)", "grano": "Sede", "frecuencia": "En Acompañamiento", "fuente": "Informe Tutor ACERCAR", "sistema": "Herramienta Web GAE", "area": "Tutor Asignado SEGAE", "acceso": "Formulario Tutor", "estado": "DATO VALIDADO", "llave": "Sede / Proyecto", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-08"}, {"id": "ATR-106", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-08 Legalidad", "nombre": "Asesoría en Matriz Legal Ambiental y Normatividad", "naturaleza": "Booleano + Observación", "grano": "Sede", "frecuencia": "En Acompañamiento", "fuente": "Informe Tutor ACERCAR", "sistema": "Herramienta Web GAE", "area": "Tutor Asignado SEGAE", "acceso": "Formulario Tutor", "estado": "DATO VALIDADO", "llave": "Sede / Legal", "replica": "No", "grupo": "Grupo General", "preguntas": "PE-13"}, {"id": "ATR-107", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-08 Legalidad", "nombre": "Identificación de Requerimientos Permisos Pendientes", "naturaleza": "Texto (Listado Permisos)", "grano": "Sede", "frecuencia": "En Acompañamiento", "fuente": "Informe Tutor ACERCAR", "sistema": "Herramienta Web GAE", "area": "Tutor Asignado SEGAE", "acceso": "Formulario Tutor", "estado": "DATO VALIDADO", "llave": "Sede / Legal", "replica": "No", "grupo": "Grupo General", "preguntas": "PE-13"}, {"id": "ATR-108", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-09 Soportes", "nombre": "Soporte PDF Plan de Acción ACERCAR Aprobado", "naturaleza": "Documental (PDF)", "grano": "Sede", "frecuencia": "Al Finalizar 10 Meses", "fuente": "Documento Plan Acción", "sistema": "Repositorio Forest / GAE", "area": "Tutor Asignado SEGAE", "acceso": "Visor Documental", "estado": "DATO VALIDADO", "llave": "Documento ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-10"}, {"id": "ATR-109", "eslabon": "E4 · Acompañamiento Técnico y Tutoría (ACERCAR)", "campo": "CA-09 Soportes", "nombre": "Soporte PDF Certificado de Aprobación ACERCAR", "naturaleza": "Documental (PDF)", "grano": "Sede", "frecuencia": "Al Finalizar 10 Meses", "fuente": "Certificado Emitido SDA", "sistema": "Repositorio Forest / GAE", "area": "Subdirección SEGAE", "acceso": "Visor Documental", "estado": "DATO HOMOLOGADO", "llave": "Documento ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-06, PE-10"}, {"id": "ATR-110", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-01 Predial", "nombre": "Verificación In Situ de Coordenadas y Linderos Predio", "naturaleza": "Booleano + Geom", "grano": "Predio", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor PR46", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Predio / Visita", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-10, PE-11"}, {"id": "ATR-111", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-01 Predial", "nombre": "Verificación Uso Real del Predio (Industrial vs Comercio)", "naturaleza": "Categoría / Texto", "grano": "Predio", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor PR46", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Predio / Uso", "replica": "Sí (Rentas SDH)", "grupo": "Grupo Fiscal", "preguntas": "PE-05, PE-10"}, {"id": "ATR-112", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-01 Predial", "nombre": "Identificación CHIPs Prediales Múltiples en Sede", "naturaleza": "Listado Alfanumérico CHIPs", "grano": "Sede", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor PR46", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Sede / CHIPs", "replica": "Sí (Catastro)", "grupo": "Grupo Fiscal", "preguntas": "PE-05, PE-11"}, {"id": "ATR-113", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-02 Productiva", "nombre": "Auditoría In Situ de Unidades de Producción / Medidores", "naturaleza": "Categoría (Conforme/Inconforme)", "grano": "Sede / Medidor", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor PR46", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Sede / Proceso", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-02, PE-10"}, {"id": "ATR-114", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-02 Productiva", "nombre": "Verificación Registros Fotográficos Medidores Internos", "naturaleza": "Documental (Fotos PDF)", "grano": "Medidor", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor PR46", "acceso": "Visor Documental", "estado": "DATO VALIDADO", "llave": "Medidor / Foto", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-02, PE-10"}, {"id": "ATR-115", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-03 Hídrico", "nombre": "Auditoría de Cuentas Contrato Acueducto vs Consumo Real", "naturaleza": "Categoría (Aprobado/Ajustado)", "grano": "Cuenta / Periodo", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor PR46", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Cuenta / Periodo", "replica": "Sí (EAAB)", "grupo": "Grupo Auditor", "preguntas": "PE-01, PE-10"}, {"id": "ATR-116", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-03 Hídrico", "nombre": "Auditoría Facturas Carrotanque y Volumen m3 Real", "naturaleza": "Categoría (Aprobado/Ajustado)", "grano": "Compra / Periodo", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor PR46", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Compra ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-01, PE-10"}, {"id": "ATR-117", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-03 Hídrico", "nombre": "Verificación In Situ Caudalímetros Pozos Subterráneos", "naturaleza": "Numérico + Categoría", "grano": "Pozo", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor PR46", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Pozo ID", "replica": "Sí (RUA)", "grupo": "Grupo Auditor", "preguntas": "PE-01, PE-08"}, {"id": "ATR-118", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-03 Hídrico", "nombre": "Consumo Hídrico Anual Validado Auditado (m3/año)", "naturaleza": "Numérico Decimal", "grano": "Sede / Año", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor PR46", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Sede / Año", "replica": "Sí (RUA)", "grupo": "Grupo Auditor", "preguntas": "PE-01, PE-02"}, {"id": "ATR-119", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-03 Hídrico", "nombre": "Ajuste / Corrección Aplicado a Consumo Hídrico (m3)", "naturaleza": "Numérico Decimal (+/-)", "grano": "Sede / Año", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor PR46", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Sede / Año", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-01, PE-10"}, {"id": "ATR-120", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-04 Energía", "nombre": "Auditoría Facturas Energía Activa (Exclusión Reactiva)", "naturaleza": "Categoría (Aprobado/Ajustado)", "grano": "Cuenta / Periodo", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor PR46", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Cuenta / Periodo", "replica": "Sí (Enel)", "grupo": "Grupo Auditor", "preguntas": "PE-01, PE-10"}, {"id": "ATR-121", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-04 Energía", "nombre": "Auditoría Facturas Gas Natural (Verificación Factor Vc)", "naturaleza": "Categoría (Aprobado/Ajustado)", "grano": "Cuenta / Periodo", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor PR46", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Cuenta / Periodo", "replica": "Sí (Vanti)", "grupo": "Grupo Auditor", "preguntas": "PE-01, PE-10"}, {"id": "ATR-122", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-04 Energía", "nombre": "Verificación Físico-Técnica de Fuentes Fijas / Combustibles", "naturaleza": "Categoría (Conforme/Inconforme)", "grano": "Fuente Fija", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor PR46", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Fuente ID", "replica": "Sí (RUA)", "grupo": "Grupo Auditor", "preguntas": "PE-01, PE-09"}, {"id": "ATR-123", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-04 Energía", "nombre": "Verificación Bitácora / Conteo Flotas Vehiculares (>=10 veh)", "naturaleza": "Numérico Entero (Vehículos)", "grano": "Flota", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor PR46", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Flota ID", "replica": "Sí (RUA)", "grupo": "Grupo Auditor", "preguntas": "PE-09"}, {"id": "ATR-124", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-04 Energía", "nombre": "Consumo Energético Anual Validado Auditado (kWh/año)", "naturaleza": "Numérico Decimal", "grano": "Sede / Año", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor PR46", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Sede / Año", "replica": "Sí (RUA)", "grupo": "Grupo Auditor", "preguntas": "PE-01, PE-02"}, {"id": "ATR-125", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-05 RESPEL", "nombre": "Auditoría 100% Cobertura Actas RESPEL vs Generación", "naturaleza": "Categoría (Conforme/Inconforme)", "grano": "Sede / RESPEL", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor RESPEL", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Sede / RESPEL", "replica": "Sí (RUA)", "grupo": "Grupo Auditor", "preguntas": "PE-03, PE-10"}, {"id": "ATR-126", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-05 RESPEL", "nombre": "Verificación Licencia Ambiental Gestor en Sistema RUA", "naturaleza": "Booleano (Vigente/Inválida)", "grano": "Gestor", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "RUA IDEAM / Consulta SDA", "sistema": "Herramienta Web GAE / RUA", "area": "Equipo Auditor RESPEL", "acceso": "Consulta BBDD RUA", "estado": "DATO VALIDADO", "llave": "Gestor (NIT)", "replica": "Sí (RUA)", "grupo": "Grupo Auditor", "preguntas": "PE-03"}, {"id": "ATR-127", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-05 RESPEL", "nombre": "Verificación Criterio Aceite Usado (Hasta 15 Enero Año Anterior)", "naturaleza": "Booleano (Aprobado/Ajustado)", "grano": "Acta", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor RESPEL", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Acta ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-03"}, {"id": "ATR-128", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-05 RESPEL", "nombre": "Generación RESPEL Anual Validad Auditada (kg/año)", "naturaleza": "Numérico Decimal (kg)", "grano": "Sede / Año", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor RESPEL", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Sede / Año", "replica": "Sí (RUA)", "grupo": "Grupo Auditor", "preguntas": "PE-03"}, {"id": "ATR-129", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-05 RESPEL", "nombre": "Ajuste / Corrección Aplicado a Generación RESPEL (kg)", "naturaleza": "Numérico Decimal (+/-)", "grano": "Sede / Año", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor RESPEL", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Sede / Año", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-03, PE-10"}, {"id": "ATR-130", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-05 RESPEL", "nombre": "Desglose de Archivos Excel Adjuntos para >30 Actas", "naturaleza": "Categoría (Validado/Incompleto)", "grano": "Sede / Año", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor RESPEL", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Sede / Excel", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-03, PE-10"}, {"id": "ATR-131", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-06 SGA/DGA", "nombre": "Auditoría In Situ del Sistema de Gestión Ambiental (SGA)", "naturaleza": "Numérico Puntaje (0-100)", "grano": "Sede / SGA", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor PREAD", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Sede / SGA", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-06, PE-15"}, {"id": "ATR-132", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-06 SGA/DGA", "nombre": "Verificación Funcionalidad / Personal del DGA en Planta", "naturaleza": "Categoría (Conforme/Inconforme)", "grano": "Empresa / DGA", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor DGA", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Empresa / DGA", "replica": "Sí (DGA)", "grupo": "Grupo Auditor", "preguntas": "PE-07"}, {"id": "ATR-133", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-07 Proyectos", "nombre": "Inspección Física In Inmueble Equipos / Proyecto Inversión", "naturaleza": "Categoría (Operativo/En Instalación)", "grano": "Proyecto", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor PR46", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Proyecto ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-04, PE-10"}, {"id": "ATR-134", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-07 Proyectos", "nombre": "Verificación Beneficio Ambiental Directo Medible / Verificable", "naturaleza": "Booleano + Cuantificación", "grano": "Proyecto", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor PR46", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Proyecto ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-04, PE-08"}, {"id": "ATR-135", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-07 Proyectos", "nombre": "Verificación Exclusión Inversiones Obligatorias / Licencia", "naturaleza": "Booleano (Elegible/Excluido)", "grano": "Proyecto", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor PR46", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Proyecto ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-04"}, {"id": "ATR-136", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-07 Proyectos", "nombre": "Evaluación Mantenimiento vs Inversión de Control/Conservación", "naturaleza": "Categoría (Aprobado/Excluido)", "grano": "Proyecto", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor PR46", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Proyecto ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-04"}, {"id": "ATR-137", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-08 Legalidad", "nombre": "Verificación Cumplimiento Normativo Integral en Visita", "naturaleza": "Categoría (Conforme/No Conforme)", "grano": "Sede", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor PR46", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Sede / Legal", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-13"}, {"id": "ATR-138", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-08 Legalidad", "nombre": "Verificación Existencia Medidores Internos Calibrados", "naturaleza": "Booleano + Soporte", "grano": "Medidor", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor PR46", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Medidor ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-01, PE-10"}, {"id": "ATR-139", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-08 Legalidad", "nombre": "Auditoría Elegibilidad de Suelo en SINUPOT para Predial", "naturaleza": "Booleano (Elegible/Incompatible)", "grano": "Predio", "frecuencia": "Por Evento PR46 / Auditoría", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor PR46", "acceso": "Formulario Visita", "estado": "DATO VALIDADO", "llave": "Predio / Suelo", "replica": "Sí (SINUPOT)", "grupo": "Grupo Fiscal", "preguntas": "PE-05, PE-13"}, {"id": "ATR-140", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-09 Soportes", "nombre": "Soporte PDF Informe Técnico de Visita de Campo PR46 Firmado", "naturaleza": "Documental (PDF)", "grano": "Trámite / Visita", "frecuencia": "Por Evento PR46", "fuente": "Informe Técnico Firmado", "sistema": "Repositorio Forest / GAE", "area": "Equipo Auditor PR46", "acceso": "Visor Documental", "estado": "DATO VALIDADO", "llave": "Documento ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-04, PE-10"}, {"id": "ATR-141", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-09 Soportes", "nombre": "Soporte PDF Formato 1 a 5 Res. 509/2018 Diligenciado", "naturaleza": "Documental (PDF)", "grano": "Trámite", "frecuencia": "Por Evento PR46", "fuente": "Formatos 1 a 5 Firmados", "sistema": "Repositorio Forest / GAE", "area": "Equipo Auditor PR46", "acceso": "Visor Documental", "estado": "DATO VALIDADO", "llave": "Documento ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-04, PE-10"}, {"id": "ATR-142", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-09 Soportes", "nombre": "Soporte PDF Certificación Revisor Fiscal / Contador Firmada", "naturaleza": "Documental (PDF)", "grano": "Trámite", "frecuencia": "Por Evento PR46", "fuente": "Certificado Contable Firmado", "sistema": "Repositorio Forest / GAE", "area": "Equipo Auditor PR46", "acceso": "Visor Documental", "estado": "DATO VALIDADO", "llave": "Documento ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-04, PE-10"}, {"id": "ATR-143", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-09 Soportes", "nombre": "Soporte PDF Memorias de Cálculo y Fichas Técnicas Equipos", "naturaleza": "Documental (PDF)", "grano": "Proyecto", "frecuencia": "Por Evento PR46", "fuente": "Memorias y Fichas PDF", "sistema": "Repositorio Forest / GAE", "area": "Equipo Auditor PR46", "acceso": "Visor Documental", "estado": "DATO VALIDADO", "llave": "Documento ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-04, PE-10"}, {"id": "ATR-144", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-09 Soportes", "nombre": "Soporte PDF Lista de Chequeo de Auditoría PR46", "naturaleza": "Documental (PDF)", "grano": "Trámite", "frecuencia": "Por Evento PR46", "fuente": "Lista Chequeo Auditoría", "sistema": "Repositorio Forest / GAE", "area": "Equipo Auditor PR46", "acceso": "Visor Documental", "estado": "DATO VALIDADO", "llave": "Documento ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-10"}, {"id": "ATR-145", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-09 Soportes", "nombre": "Fecha de Emisión del Informe Técnico de Visita PR46", "naturaleza": "Fecha (YYYY-MM-DD)", "grano": "Trámite", "frecuencia": "Por Evento PR46", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor PR46", "acceso": "Formulario Web", "estado": "DATO VALIDADO", "llave": "Trámite ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-04, PE-10"}, {"id": "ATR-146", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-09 Soportes", "nombre": "Identificador del Profesional Evaluador Auditor SDA", "naturaleza": "Texto / Cédula", "grano": "Trámite", "frecuencia": "Por Evento PR46", "fuente": "Informe Visita PR46", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor PR46", "acceso": "Formulario Web", "estado": "DATO VALIDADO", "llave": "Usuario ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-10"}, {"id": "ATR-147", "eslabon": "E5 · Auditoría, Verificación y Visita PR46", "campo": "CA-09 Soportes", "nombre": "Concepto Requerimiento Subsanación Emitido (Plazo 1 Mes)", "naturaleza": "Booleano + Texto Requerim.", "grano": "Trámite", "frecuencia": "Eventual PR46", "fuente": "Auto / Oficio Requerimiento", "sistema": "Herramienta Web GAE / Forest", "area": "Equipo Auditor PR46", "acceso": "Formulario Web", "estado": "DATO VALIDADO", "llave": "Trámite ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-04, PE-10"}, {"id": "ATR-148", "eslabon": "E6 · Evaluación y Calificación del IDAE", "campo": "CA-01 Predial", "nombre": "Identificador de la Sede Evaluada para IDAE", "naturaleza": "Alfanumérico (GAE_NIT_00N)", "grano": "Sede", "frecuencia": "Anual", "fuente": "Tabla Master Sede", "sistema": "Herramienta Web GAE", "area": "Equipo IDAE", "acceso": "Cálculo Automático", "estado": "DATO HOMOLOGADO", "llave": "Sede ID", "replica": "No", "grupo": "Grupo Analítico", "preguntas": "PE-12, PE-15"}, {"id": "ATR-149", "eslabon": "E6 · Evaluación y Calificación del IDAE", "campo": "CA-02 Productiva", "nombre": "Consumo Específico de Agua (CEA = m3 / Unidad Producción)", "naturaleza": "Numérico Decimal (m3/Unid)", "grano": "Sede / Año", "frecuencia": "Anual", "fuente": "Cálculo IDAE (Prorrateado)", "sistema": "Herramienta Web GAE", "area": "Equipo IDAE", "acceso": "Cálculo Automático", "estado": "DATO HOMOLOGADO", "llave": "Sede / Año", "replica": "No", "grupo": "Grupo Analítico", "preguntas": "PE-02, PE-15"}, {"id": "ATR-150", "eslabon": "E6 · Evaluación y Calificación del IDAE", "campo": "CA-02 Productiva", "nombre": "Consumo Específico de Energía (CEE = kWh / Unidad Producción)", "naturaleza": "Numérico Decimal (kWh/Unid)", "grano": "Sede / Año", "frecuencia": "Anual", "fuente": "Cálculo IDAE (Prorrateado)", "sistema": "Herramienta Web GAE", "area": "Equipo IDAE", "acceso": "Cálculo Automático", "estado": "DATO HOMOLOGADO", "llave": "Sede / Año", "replica": "No", "grupo": "Grupo Analítico", "preguntas": "PE-02, PE-15"}, {"id": "ATR-151", "eslabon": "E6 · Evaluación y Calificación del IDAE", "campo": "CA-02 Productiva", "nombre": "Generación Específica de RESPEL (GER = kg / Unidad Producción)", "naturaleza": "Numérico Decimal (kg/Unid)", "grano": "Sede / Año", "frecuencia": "Anual", "fuente": "Cálculo IDAE (Validado)", "sistema": "Herramienta Web GAE", "area": "Equipo IDAE", "acceso": "Cálculo Automático", "estado": "DATO HOMOLOGADO", "llave": "Sede / Año", "replica": "No", "grupo": "Grupo Analítico", "preguntas": "PE-02, PE-15"}, {"id": "ATR-152", "eslabon": "E6 · Evaluación y Calificación del IDAE", "campo": "CA-02 Productiva", "nombre": "Subíndice de Desempeño Ambiental (Indicadores 40%)", "naturaleza": "Numérico (0-100)", "grano": "Sede / Año", "frecuencia": "Anual", "fuente": "Algoritmo Ponderador IDAE", "sistema": "Herramienta Web GAE", "area": "Equipo IDAE", "acceso": "Cálculo Automático", "estado": "DATO HOMOLOGADO", "llave": "Sede / Año", "replica": "No", "grupo": "Grupo Analítico", "preguntas": "PE-02, PE-15"}, {"id": "ATR-153", "eslabon": "E6 · Evaluación y Calificación del IDAE", "campo": "CA-03 Hídrico", "nombre": "Consumo Hídrico Total Anual Prorrateado Diarios (m3/año)", "naturaleza": "Numérico Decimal", "grano": "Sede / Año", "frecuencia": "Anual", "fuente": "Algoritmo RN_TEMPORALIDAD", "sistema": "Engine BD GAE", "area": "Equipo IDAE", "acceso": "Cálculo Automático", "estado": "DATO HOMOLOGADO", "llave": "Sede / Año", "replica": "Sí (RUA)", "grupo": "Grupo Analítico", "preguntas": "PE-01, PE-02"}, {"id": "ATR-154", "eslabon": "E6 · Evaluación y Calificación del IDAE", "campo": "CA-03 Hídrico", "nombre": "Variación Porcentual Consumo Hídrico respecto Año Anterior (%)", "naturaleza": "Numérico Porcentaje (+/-%)", "grano": "Sede / Año", "frecuencia": "Anual", "fuente": "Cálculo Comparativo IDAE", "sistema": "Herramienta Web GAE", "area": "Equipo IDAE", "acceso": "Cálculo Automático", "estado": "DATO HOMOLOGADO", "llave": "Sede / Año", "replica": "No", "grupo": "Grupo Analítico", "preguntas": "PE-01, PE-02"}, {"id": "ATR-155", "eslabon": "E6 · Evaluación y Calificación del IDAE", "campo": "CA-03 Hídrico", "nombre": "Puntaje Obtenido Componente Agua en IDAE", "naturaleza": "Numérico Decimal (0-100)", "grano": "Sede / Año", "frecuencia": "Anual", "fuente": "Matriz Calificación IDAE", "sistema": "Herramienta Web GAE", "area": "Equipo IDAE", "acceso": "Cálculo Automático", "estado": "DATO HOMOLOGADO", "llave": "Sede / Año", "replica": "No", "grupo": "Grupo Analítico", "preguntas": "PE-01, PE-15"}, {"id": "ATR-156", "eslabon": "E6 · Evaluación y Calificación del IDAE", "campo": "CA-04 Energía", "nombre": "Consumo Energético Total Anual Prorrateado Diarios (kWh/año)", "naturaleza": "Numérico Decimal", "grano": "Sede / Año", "frecuencia": "Anual", "fuente": "Algoritmo RN_TEMPORALIDAD", "sistema": "Engine BD GAE", "area": "Equipo IDAE", "acceso": "Cálculo Automático", "estado": "DATO HOMOLOGADO", "llave": "Sede / Año", "replica": "Sí (RUA)", "grupo": "Grupo Analítico", "preguntas": "PE-01, PE-02"}, {"id": "ATR-157", "eslabon": "E6 · Evaluación y Calificación del IDAE", "campo": "CA-04 Energía", "nombre": "Variación Porcentual Consumo Energético respecto Año Anterior (%)", "naturaleza": "Numérico Porcentaje (+/-%)", "grano": "Sede / Año", "frecuencia": "Anual", "fuente": "Cálculo Comparativo IDAE", "sistema": "Herramienta Web GAE", "area": "Equipo IDAE", "acceso": "Cálculo Automático", "estado": "DATO HOMOLOGADO", "llave": "Sede / Año", "replica": "No", "grupo": "Grupo Analítico", "preguntas": "PE-01, PE-02"}, {"id": "ATR-158", "eslabon": "E6 · Evaluación y Calificación del IDAE", "campo": "CA-04 Energía", "nombre": "Puntaje Obtenido Componente Energía en IDAE", "naturaleza": "Numérico Decimal (0-100)", "grano": "Sede / Año", "frecuencia": "Anual", "fuente": "Matriz Calificación IDAE", "sistema": "Herramienta Web GAE", "area": "Equipo IDAE", "acceso": "Cálculo Automático", "estado": "DATO HOMOLOGADO", "llave": "Sede / Año", "replica": "No", "grupo": "Grupo Analítico", "preguntas": "PE-01, PE-15"}, {"id": "ATR-159", "eslabon": "E6 · Evaluación y Calificación del IDAE", "campo": "CA-05 RESPEL", "nombre": "Generación RESPEL Total Anual Consolidada (kg/año)", "naturaleza": "Numérico Decimal (kg)", "grano": "Sede / Año", "frecuencia": "Anual", "fuente": "Suma Actas Validadas", "sistema": "Herramienta Web GAE", "area": "Equipo IDAE", "acceso": "Cálculo Automático", "estado": "DATO HOMOLOGADO", "llave": "Sede / Año", "replica": "Sí (RUA)", "grupo": "Grupo Analítico", "preguntas": "PE-03, PE-15"}, {"id": "ATR-160", "eslabon": "E6 · Evaluación y Calificación del IDAE", "campo": "CA-05 RESPEL", "nombre": "Variación Porcentual Generación RESPEL respecto Año Anterior (%)", "naturaleza": "Numérico Porcentaje (+/-%)", "grano": "Sede / Año", "frecuencia": "Anual", "fuente": "Cálculo Comparativo IDAE", "sistema": "Herramienta Web GAE", "area": "Equipo IDAE", "acceso": "Cálculo Automático", "estado": "DATO HOMOLOGADO", "llave": "Sede / Año", "replica": "No", "grupo": "Grupo Analítico", "preguntas": "PE-03, PE-02"}, {"id": "ATR-161", "eslabon": "E6 · Evaluación y Calificación del IDAE", "campo": "CA-05 RESPEL", "nombre": "Puntaje Obtenido Componente RESPEL en IDAE", "naturaleza": "Numérico Decimal (0-100)", "grano": "Sede / Año", "frecuencia": "Anual", "fuente": "Matriz Calificación IDAE", "sistema": "Herramienta Web GAE", "area": "Equipo IDAE", "acceso": "Cálculo Automático", "estado": "DATO HOMOLOGADO", "llave": "Sede / Año", "replica": "No", "grupo": "Grupo Analítico", "preguntas": "PE-03, PE-15"}, {"id": "ATR-162", "eslabon": "E6 · Evaluación y Calificación del IDAE", "campo": "CA-06 SGA/DGA", "nombre": "Puntaje Calificación Componente SGA (30% del IDAE)", "naturaleza": "Numérico (0-100)", "grano": "Sede / Año", "frecuencia": "Anual", "fuente": "Matriz Evaluativa PREAD", "sistema": "Herramienta Web GAE", "area": "Equipo PREAD / IDAE", "acceso": "Cálculo Automático", "estado": "DATO HOMOLOGADO", "llave": "Sede / SGA", "replica": "No", "grupo": "Grupo Analítico", "preguntas": "PE-06, PE-15"}, {"id": "ATR-163", "eslabon": "E6 · Evaluación y Calificación del IDAE", "campo": "CA-06 SGA/DGA", "nombre": "Puntaje Ponderado SGA Aportado al IDAE Final (Puntaje * 0.30)", "naturaleza": "Numérico Decimal (0-30)", "grano": "Sede / Año", "frecuencia": "Anual", "fuente": "Algoritmo IDAE", "sistema": "Herramienta Web GAE", "area": "Equipo IDAE", "acceso": "Cálculo Automático", "estado": "DATO HOMOLOGADO", "llave": "Sede / SGA", "replica": "No", "grupo": "Grupo Analítico", "preguntas": "PE-06, PE-15"}, {"id": "ATR-164", "eslabon": "E6 · Evaluación y Calificación del IDAE", "campo": "CA-06 SGA/DGA", "nombre": "Nivel de Madurez SGA Registrado en PREAD", "naturaleza": "Categoría / Texto", "grano": "Sede / Año", "frecuencia": "Anual", "fuente": "Evaluación PREAD", "sistema": "Herramienta Web GAE", "area": "Equipo PREAD", "acceso": "Formulario Evaluador", "estado": "DATO HOMOLOGADO", "llave": "Sede / SGA", "replica": "No", "grupo": "Grupo Analítico", "preguntas": "PE-06"}, {"id": "ATR-165", "eslabon": "E6 · Evaluación y Calificación del IDAE", "campo": "CA-06 SGA/DGA", "nombre": "Valoración de la Estructura DGA en Calificación SGA", "naturaleza": "Numérico Decimal", "grano": "Empresa / Año", "frecuencia": "Anual", "fuente": "Matriz DGA / PREAD", "sistema": "Herramienta Web GAE", "area": "Equipo DGA / PREAD", "acceso": "Formulario Evaluador", "estado": "DATO HOMOLOGADO", "llave": "Empresa / DGA", "replica": "Sí (DGA)", "grupo": "Grupo Analítico", "preguntas": "PE-06, PE-07"}, {"id": "ATR-166", "eslabon": "E6 · Evaluación y Calificación del IDAE", "campo": "CA-07 Proyectos", "nombre": "Puntaje Calificación Componente Proyectos / PML (30% IDAE)", "naturaleza": "Numérico (0-100)", "grano": "Sede / Año", "frecuencia": "Anual", "fuente": "Matriz Evaluativa Proyectos", "sistema": "Herramienta Web GAE", "area": "Equipo Proyectos/IDAE", "acceso": "Cálculo Automático", "estado": "DATO HOMOLOGADO", "llave": "Sede / Proyecto", "replica": "No", "grupo": "Grupo Analítico", "preguntas": "PE-07, PE-15"}, {"id": "ATR-167", "eslabon": "E6 · Evaluación y Calificación del IDAE", "campo": "CA-07 Proyectos", "nombre": "Puntaje Ponderado Proyectos Aportado al IDAE (Puntaje * 0.30)", "naturaleza": "Numérico Decimal (0-30)", "grano": "Sede / Año", "frecuencia": "Anual", "fuente": "Algoritmo IDAE", "sistema": "Herramienta Web GAE", "area": "Equipo IDAE", "acceso": "Cálculo Automático", "estado": "DATO HOMOLOGADO", "llave": "Sede / Proyecto", "replica": "No", "grupo": "Grupo Analítico", "preguntas": "PE-07, PE-15"}, {"id": "ATR-168", "eslabon": "E6 · Evaluación y Calificación del IDAE", "campo": "CA-07 Proyectos", "nombre": "Calificación Sensibilidad Proyectos Ahorro Recursos", "naturaleza": "Numérico Decimal", "grano": "Sede / Año", "frecuencia": "Anual", "fuente": "Matriz Evaluativa Proyectos", "sistema": "Herramienta Web GAE", "area": "Equipo IDAE", "acceso": "Cálculo Automático", "estado": "DATO HOMOLOGADO", "llave": "Sede / Proyecto", "replica": "No", "grupo": "Grupo Analítico", "preguntas": "PE-08, PE-15"}, {"id": "ATR-169", "eslabon": "E6 · Evaluación y Calificación del IDAE", "campo": "CA-07 Proyectos", "nombre": "Calificación Participación en Alianzas Gobernanza CFF / PROREDES", "naturaleza": "Numérico Decimal", "grano": "Sede / Año", "frecuencia": "Anual", "fuente": "Matriz Evaluativa Proyectos", "sistema": "Herramienta Web GAE", "area": "Equipo Proyectos", "acceso": "Formulario Evaluador", "estado": "DATO HOMOLOGADO", "llave": "Sede / Proyecto", "replica": "No", "grupo": "Grupo Analítico", "preguntas": "PE-08"}, {"id": "ATR-170", "eslabon": "E6 · Evaluación y Calificación del IDAE", "campo": "CA-07 Proyectos", "nombre": "Puntaje Final Consolidado IDAE (40% Presión + 30% SGA + 30% Proj)", "naturaleza": "Numérico Decimal (0-100)", "grano": "Sede / Año", "frecuencia": "Anual", "fuente": "Fórmula Ponderada IDAE", "sistema": "Herramienta Web GAE", "area": "Equipo IDAE / PREAD", "acceso": "Cálculo Automático", "estado": "DATO HOMOLOGADO", "llave": "Sede / IDAE", "replica": "No", "grupo": "Grupo Analítico", "preguntas": "PE-06, PE-15"}, {"id": "ATR-171", "eslabon": "E6 · Evaluación y Calificación del IDAE", "campo": "CA-08 Legalidad", "nombre": "Habilitación Legal Final para Clasificación PREAD (Sí/No)", "naturaleza": "Booleano (Flag)", "grano": "Sede / Año", "frecuencia": "Anual", "fuente": "Verificación Requisitos Legales", "sistema": "Herramienta Web GAE", "area": "Equipo PREAD", "acceso": "Formulario Evaluador", "estado": "DATO HOMOLOGADO", "llave": "Sede / Legal", "replica": "No", "grupo": "Grupo Analítico", "preguntas": "PE-06, PE-13"}, {"id": "ATR-172", "eslabon": "E6 · Evaluación y Calificación del IDAE", "campo": "CA-09 Soportes", "nombre": "Soporte PDF Matriz de Calificación IDAE Aprobada", "naturaleza": "Documental (PDF)", "grano": "Sede / IDAE", "frecuencia": "Anual", "fuente": "Matriz Generada Sistema", "sistema": "Repositorio Forest / GAE", "area": "Equipo IDAE", "acceso": "Visor Documental", "estado": "DATO HOMOLOGADO", "llave": "Documento ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-10, PE-15"}, {"id": "ATR-173", "eslabon": "E6 · Evaluación y Calificación del IDAE", "campo": "CA-09 Soportes", "nombre": "Fecha de Consolidación Oficial del IDAE del Año de Balance", "naturaleza": "Fecha (YYYY-MM-DD)", "grano": "Sede / IDAE", "frecuencia": "Anual", "fuente": "Sistema GAE", "sistema": "Herramienta Web GAE", "area": "Equipo IDAE", "acceso": "Cálculo Automático", "estado": "DATO HOMOLOGADO", "llave": "Sede / IDAE", "replica": "No", "grupo": "Grupo Analítico", "preguntas": "PE-15"}, {"id": "ATR-174", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-01 Predial", "nombre": "Clasificación de Impacto Ambiental Predial (Bajo / Medio Impacto)", "naturaleza": "Categoría / Texto", "grano": "Predio", "frecuencia": "Anual (Res. 7189/2010)", "fuente": "Concepto Técnico Predial", "sistema": "Herramienta Web GAE", "area": "Equipo Técnico SEGAE", "acceso": "Formulario / Reporte", "estado": "DATO HOMOLOGADO", "llave": "Predio / Clasificación", "replica": "Sí (Rentas SDH)", "grupo": "Grupo Fiscal", "preguntas": "PE-05"}, {"id": "ATR-175", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-01 Predial", "nombre": "Tarifa Preferencial Predial Asignada (8.5 per mil / 9.0 per mil)", "naturaleza": "Numérico Decimal (Tarifa)", "grano": "Predio", "frecuencia": "Anual", "fuente": "Acuerdo 105/2003 / Res. 7189", "sistema": "BOG Data / Rentas SDH", "area": "Secretaría Hacienda SDH", "acceso": "Reporte Interinstitucional", "estado": "DATO HOMOLOGADO", "llave": "Predio / Tarifa", "replica": "Sí (Rentas SDH)", "grupo": "Grupo Fiscal", "preguntas": "PE-05"}, {"id": "ATR-176", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-01 Predial", "nombre": "Verificación Propietario Único del Inmueble (Sí/No)", "naturaleza": "Booleano (Flag)", "grano": "Predio / Empresa", "frecuencia": "Anual", "fuente": "Certificado Tradición / Catastro", "sistema": "Catastro / BOG Data", "area": "Rentas SDH / SDA", "acceso": "Interoperabilidad BOG Data", "estado": "DATO VALIDADO", "llave": "Predio / Propietario", "replica": "Sí (Rentas SDH)", "grupo": "Grupo Fiscal", "preguntas": "PE-05, PE-35"}, {"id": "ATR-177", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-01 Predial", "nombre": "Verificación Categoría 10 Industrial Recibo Predial", "naturaleza": "Booleano (Flag)", "grano": "Predio", "frecuencia": "Anual", "fuente": "Recibo Predial Unificado", "sistema": "BOG Data / Catastro", "area": "Rentas SDH", "acceso": "Interoperabilidad BOG Data", "estado": "DATO VALIDADO", "llave": "Predio / Categoría", "replica": "Sí (Rentas SDH)", "grupo": "Grupo Fiscal", "preguntas": "PE-05, PE-36"}, {"id": "ATR-178", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-01 Predial", "nombre": "Discrepancia Catastral Detectada en CHIP (Sí/No)", "naturaleza": "Booleano + Observación", "grano": "Predio", "frecuencia": "Anual", "fuente": "Cruce Catastro vs SDH", "sistema": "BOG Data", "area": "Secretaría Hacienda SDH", "acceso": "Reporte Interinstitucional", "estado": "DATO HOMOLOGADO", "llave": "Predio / CHIP", "replica": "Sí (Catastro)", "grupo": "Grupo Fiscal", "preguntas": "PE-05, PE-33"}, {"id": "ATR-179", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-02 Productiva", "nombre": "Verificación Suelo Permitido Actividad Manufacturera", "naturaleza": "Booleano (Flag)", "grano": "Sede / CIIU", "frecuencia": "Anual", "fuente": "SINUPOT / POT Decreto 55", "sistema": "SINUPOT", "area": "Equipo Ecourbanismo", "acceso": "Interoperabilidad SINUPOT", "estado": "DATO VALIDADO", "llave": "Sede / Suelo", "replica": "Sí (SINUPOT)", "grupo": "Grupo Fiscal", "preguntas": "PE-05, PE-13"}, {"id": "ATR-180", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-03 Hídrico", "nombre": "Beneficio Ambiental Directo Ahorro Agua Verificado COP", "naturaleza": "Moneda (COP)", "grano": "Proyecto / Renta", "frecuencia": "Por Trámite Renta", "fuente": "Formato 1 Res. 509/2018", "sistema": "Herramienta Web GAE / PR46", "area": "Comité Gestión Control", "acceso": "Informe PR46", "estado": "DATO VALIDADO", "llave": "Proyecto / Renta", "replica": "Sí (DIAN)", "grupo": "Grupo Fiscal", "preguntas": "PE-04, PE-08"}, {"id": "ATR-181", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-03 Hídrico", "nombre": "Cumplimiento Programa Uso Eficiente Agua Ley 13373/1997", "naturaleza": "Booleano (Flag)", "grano": "Sede", "frecuencia": "Por Trámite Renta", "fuente": "Certificado PUEAA SDA", "sistema": "Herramienta Web GAE / PR46", "area": "Comité Gestión Control", "acceso": "Informe PR46", "estado": "DATO VALIDADO", "llave": "Sede / PUEAA", "replica": "Sí (DIAN)", "grupo": "Grupo Fiscal", "preguntas": "PE-04, PE-26"}, {"id": "ATR-182", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-04 Energía", "nombre": "Beneficio Ambiental Directo Eficiencia Energética Verificado", "naturaleza": "Moneda (COP)", "grano": "Proyecto / Renta", "frecuencia": "Por Trámite Renta", "fuente": "Formato 1 Res. 509/2018", "sistema": "Herramienta Web GAE / PR46", "area": "Comité Gestión Control", "acceso": "Informe PR46", "estado": "DATO VALIDADO", "llave": "Proyecto / Renta", "replica": "Sí (DIAN)", "grupo": "Grupo Fiscal", "preguntas": "PE-04, PE-08"}, {"id": "ATR-183", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-04 Energía", "nombre": "Vinculación Programa Ahorro Energía UPME / Meta Ambiental", "naturaleza": "Booleano (Flag)", "grano": "Proyecto", "frecuencia": "Por Trámite Renta", "fuente": "Certificación UPME", "sistema": "Herramienta Web GAE / PR46", "area": "Comité Gestión Control", "acceso": "Informe PR46", "estado": "DATO VALIDADO", "llave": "Proyecto / UPME", "replica": "Sí (DIAN)", "grupo": "Grupo Fiscal", "preguntas": "PE-04, PE-26"}, {"id": "ATR-184", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-05 RESPEL", "nombre": "Beneficio Ambiental Directo Sistema Control RESPEL Verificado", "naturaleza": "Moneda (COP)", "grano": "Proyecto / Renta", "frecuencia": "Por Trámite Renta", "fuente": "Formato 4 Res. 509/2018", "sistema": "Herramienta Web GAE / PR46", "area": "Comité Gestión Control", "acceso": "Informe PR46", "estado": "DATO VALIDADO", "llave": "Proyecto / Renta", "replica": "Sí (DIAN)", "grupo": "Grupo Fiscal", "preguntas": "PE-04, PE-03"}, {"id": "ATR-185", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-05 RESPEL", "nombre": "Verificación Inversión Sistema Tratamiento Vertimientos / RESPEL", "naturaleza": "Booleano (Flag)", "grano": "Proyecto", "frecuencia": "Por Trámite Renta", "fuente": "Formato 2 Res. 509/2018", "sistema": "Herramienta Web GAE / PR46", "area": "Comité Gestión Control", "acceso": "Informe PR46", "estado": "DATO VALIDADO", "llave": "Proyecto / Renta", "replica": "Sí (DIAN)", "grupo": "Grupo Fiscal", "preguntas": "PE-04"}, {"id": "ATR-186", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-06 SGA/DGA", "nombre": "Nivel Reconocimiento PREAD Otorgado (Marcha/Excelencia/Élite)", "naturaleza": "Categoría / Texto", "grano": "Sede / PREAD", "frecuencia": "Anual (Res. 00313/2022)", "fuente": "Dictamen Comité PREAD", "sistema": "Herramienta Web GAE", "area": "Subdirector SEGAE", "acceso": "Acto Administrativo", "estado": "DATO HOMOLOGADO", "llave": "Sede / Galardón", "replica": "No", "grupo": "Grupo General", "preguntas": "PE-06"}, {"id": "ATR-187", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-06 SGA/DGA", "nombre": "Número Resolución / Acto Administrativo Galardón PREAD", "naturaleza": "Alfanumérico (Resolución)", "grano": "Sede / PREAD", "frecuencia": "Anual", "fuente": "Resolución SDA PREAD", "sistema": "Herramienta Web GAE", "area": "Subdirector SEGAE", "acceso": "Acto Administrativo", "estado": "DATO HOMOLOGADO", "llave": "Sede / Acto", "replica": "No", "grupo": "Grupo General", "preguntas": "PE-06"}, {"id": "ATR-188", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-07 Proyectos", "nombre": "Costo Total Inversión Ambiental Certificada para Renta (COP)", "naturaleza": "Moneda (COP)", "grano": "Proyecto / Renta", "frecuencia": "Por Trámite Renta", "fuente": "Formato 5 Res. 509/2018", "sistema": "Ventanilla Virtual / PR46", "area": "Comité Gestión Control", "acceso": "Acta Comité PR46", "estado": "DATO VALIDADO", "llave": "Proyecto / Renta", "replica": "Sí (DIAN)", "grupo": "Grupo Fiscal", "preguntas": "PE-04, PE-23"}, {"id": "ATR-189", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-07 Proyectos", "nombre": "Monto Estimado Descuento en Renta (Inversión * 25%)", "naturaleza": "Moneda (COP Calculado)", "grano": "Empresa / Renta", "frecuencia": "Por Trámite Renta", "fuente": "Estatuto Tributario Art. 255", "sistema": "Ventanilla Virtual / PR46", "area": "Contribuyente / DIAN", "acceso": "Cálculo Tributario", "estado": "DATO HOMOLOGADO", "llave": "Empresa / Renta", "replica": "Sí (DIAN)", "grupo": "Grupo Fiscal", "preguntas": "PE-04, PE-22"}, {"id": "ATR-190", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-07 Proyectos", "nombre": "Clasificación Tipo Inversión Renta (Control vs Conservación)", "naturaleza": "Categoría / Texto", "grano": "Proyecto", "frecuencia": "Por Trámite Renta", "fuente": "Decreto 2205 / Res. 509", "sistema": "Herramienta Web GAE / PR46", "area": "Comité Gestión Control", "acceso": "Informe PR46", "estado": "DATO VALIDADO", "llave": "Proyecto / Tipo", "replica": "Sí (DIAN)", "grupo": "Grupo Fiscal", "preguntas": "PE-04, PE-24"}, {"id": "ATR-191", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-07 Proyectos", "nombre": "Rubro Específico Decreto 2205 Aplicado a la Inversión", "naturaleza": "Alfanumérico (Rubro)", "grano": "Proyecto", "frecuencia": "Por Trámite Renta", "fuente": "Decreto 2205 / Res. 509", "sistema": "Herramienta Web GAE / PR46", "area": "Comité Gestión Control", "acceso": "Informe PR46", "estado": "DATO VALIDADO", "llave": "Proyecto / Rubro", "replica": "Sí (DIAN)", "grupo": "Grupo Fiscal", "preguntas": "PE-04, PE-23"}, {"id": "ATR-192", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-07 Proyectos", "nombre": "Estado Ejecución del Proyecto Certificado (Total o Por Fases)", "naturaleza": "Categoría / Texto", "grano": "Proyecto", "frecuencia": "Por Trámite Renta", "fuente": "Cronograma Proyecto PDF", "sistema": "Herramienta Web GAE / PR46", "area": "Comité Gestión Control", "acceso": "Informe PR46", "estado": "DATO VALIDADO", "llave": "Proyecto / Fase", "replica": "Sí (DIAN)", "grupo": "Grupo Fiscal", "preguntas": "PE-04, PE-29"}, {"id": "ATR-193", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-07 Proyectos", "nombre": "Aprobación Inversión por Fases con Cronograma General", "naturaleza": "Booleano (Flag)", "grano": "Proyecto", "frecuencia": "Por Trámite Renta", "fuente": "Memoria Técnica Fases", "sistema": "Herramienta Web GAE / PR46", "area": "Comité Gestión Control", "acceso": "Acta Comité PR46", "estado": "DATO VALIDADO", "llave": "Proyecto / Fase", "replica": "Sí (DIAN)", "grupo": "Grupo Fiscal", "preguntas": "PE-04, PE-29"}, {"id": "ATR-194", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-07 Proyectos", "nombre": "Adquisición Predios Preservación Fuentes Hídricas POMCA", "naturaleza": "Booleano + Moneda COP", "grano": "Predio / Proyecto", "frecuencia": "Por Trámite Renta", "fuente": "Planes Regionales POMCA", "sistema": "Herramienta Web GAE / PR46", "area": "Comité Gestión Control", "acceso": "Informe PR46", "estado": "DATO VALIDADO", "llave": "Predio / POMCA", "replica": "Sí (DIAN)", "grupo": "Grupo Fiscal", "preguntas": "PE-04, PE-25"}, {"id": "ATR-195", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-07 Proyectos", "nombre": "Aprobación Inversiones FNCER / Eficiencia Energética", "naturaleza": "Booleano (Flag)", "grano": "Proyecto", "frecuencia": "Por Trámite Renta", "fuente": "Guía Formulación Proyectos", "sistema": "Herramienta Web GAE / PR46", "area": "Comité Gestión Control", "acceso": "Acta Comité PR46", "estado": "DATO VALIDADO", "llave": "Proyecto FNCER", "replica": "Sí (DIAN)", "grupo": "Grupo Fiscal", "preguntas": "PE-04, PE-08"}, {"id": "ATR-196", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-08 Legalidad", "nombre": "Fecha Límite Radicación Solicitud Predial (1 Jul - 30 Sep)", "naturaleza": "Fecha (YYYY-MM-DD)", "grano": "Trámite Predial", "frecuencia": "Anual", "fuente": "Ventana Rígida Res. 7189", "sistema": "Herramienta Web GAE", "area": "Equipo Técnico SEGAE", "acceso": "Control Sistema", "estado": "DATO VALIDADO", "llave": "Trámite / Fecha", "replica": "Sí (Rentas SDH)", "grupo": "Grupo Fiscal", "preguntas": "PE-05, PE-20"}, {"id": "ATR-197", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-08 Legalidad", "nombre": "Fecha Reporte Oficial a Hacienda SDH (1a Semana Diciembre)", "naturaleza": "Fecha (YYYY-MM-DD)", "grano": "Trámite Predial", "frecuencia": "Anual", "fuente": "Cronograma Institucional", "sistema": "BOG Data / Rentas SDH", "area": "Subdirector SEGAE", "acceso": "Reporte Interinstitucional", "estado": "DATO HOMOLOGADO", "llave": "Trámite / Reporte", "replica": "Sí (Rentas SDH)", "grupo": "Grupo Fiscal", "preguntas": "PE-05, PE-32"}, {"id": "ATR-198", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-08 Legalidad", "nombre": "Vigencia Anual Renovación Clasificación Impacto Predial", "naturaleza": "Año Fiscal (YYYY)", "grano": "Predio", "frecuencia": "Anual", "fuente": "Res. 7189 de 2010", "sistema": "Herramienta Web GAE / BOG Data", "area": "Rentas SDH", "acceso": "Control Sistema", "estado": "DATO HOMOLOGADO", "llave": "Predio / Vigencia", "replica": "Sí (Rentas SDH)", "grupo": "Grupo Fiscal", "preguntas": "PE-05, PE-30"}, {"id": "ATR-199", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-08 Legalidad", "nombre": "Cumplimiento Requisitos Art. 3 Res. 509/2018 para Renta", "naturaleza": "Booleano (Aprobado/Rechazado)", "grano": "Trámite Renta", "frecuencia": "Por Trámite Renta", "fuente": "Res. 509 de 2018", "sistema": "Ventanilla Virtual / PR46", "area": "Comité Gestión Control", "acceso": "Acta Comité PR46", "estado": "DATO VALIDADO", "llave": "Trámite / Requisito", "replica": "Sí (DIAN)", "grupo": "Grupo Fiscal", "preguntas": "PE-04, PE-19"}, {"id": "ATR-200", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-09 Soportes", "nombre": "Soporte PDF Certificado Ambiental Renta Art. 255 ET Emitido", "naturaleza": "Documental (PDF)", "grano": "Certificado / Renta", "frecuencia": "Por Trámite Renta", "fuente": "Acto Administrativo SDA", "sistema": "Repositorio Forest / GAE", "area": "Subdirector SEGAE", "acceso": "Visor Documental", "estado": "DATO HOMOLOGADO", "llave": "Documento ID", "replica": "Sí (DIAN)", "grupo": "Grupo Fiscal", "preguntas": "PE-04, PE-10"}, {"id": "ATR-201", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-09 Soportes", "nombre": "Soporte PDF Acta del Comité de Gestión Control Aprobatoria", "naturaleza": "Documental (PDF)", "grano": "Trámite / Acta", "frecuencia": "Por Trámite Renta", "fuente": "Acta Comité Gestión Control", "sistema": "Repositorio Forest / GAE", "area": "Comité Gestión Control", "acceso": "Visor Documental", "estado": "DATO VALIDADO", "llave": "Documento ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-04, PE-27"}, {"id": "ATR-202", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-09 Soportes", "nombre": "Soporte PDF Reporte Masivo a Hacienda Predial Aprobado", "naturaleza": "Documental (PDF)", "grano": "Reporte SDH", "frecuencia": "Anual (Diciembre)", "fuente": "Oficio / Reporte SDH", "sistema": "Repositorio Forest / BOG Data", "area": "Subdirector SEGAE", "acceso": "Visor Documental", "estado": "DATO HOMOLOGADO", "llave": "Documento ID", "replica": "Sí (Rentas SDH)", "grupo": "Grupo Fiscal", "preguntas": "PE-05, PE-32"}, {"id": "ATR-203", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-09 Soportes", "nombre": "Soporte PDF Galardón / Diploma PREAD Entregado", "naturaleza": "Documental (PDF)", "grano": "Sede / PREAD", "frecuencia": "Anual", "fuente": "Diploma Oficial SDA", "sistema": "Repositorio Forest / GAE", "area": "Equipo PREAD", "acceso": "Visor Documental", "estado": "DATO HOMOLOGADO", "llave": "Documento ID", "replica": "No", "grupo": "Grupo General", "preguntas": "PE-06"}, {"id": "ATR-204", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-09 Soportes", "nombre": "Número de Acta Oficial Comité Gestión Control PR46", "naturaleza": "Alfanumérico (No. Acta)", "grano": "Trámite / Acta", "frecuencia": "Por Trámite Renta", "fuente": "Comité Gestión Control", "sistema": "Herramienta Web GAE / Forest", "area": "Comité Gestión Control", "acceso": "Formulario Web", "estado": "DATO VALIDADO", "llave": "Acta ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-04, PE-27"}, {"id": "ATR-205", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-09 Soportes", "nombre": "Fecha de Expedición del Certificado Ambiental Renta", "naturaleza": "Fecha (YYYY-MM-DD)", "grano": "Certificado / Renta", "frecuencia": "Por Trámite Renta", "fuente": "Acto Administrativo SDA", "sistema": "Herramienta Web GAE / Forest", "area": "Subdirector SEGAE", "acceso": "Formulario Web", "estado": "DATO HOMOLOGADO", "llave": "Certificado ID", "replica": "Sí (DIAN)", "grupo": "Grupo Fiscal", "preguntas": "PE-04, PE-20"}, {"id": "ATR-206", "eslabon": "E7 · Certificación, Reconocimientos e Incentivos", "campo": "CA-09 Soportes", "nombre": "Verificación Emisión Certificado Previa a Declaración Renta", "naturaleza": "Booleano (Oportuno/Atiempo)", "grano": "Trámite Renta", "frecuencia": "Por Trámite Renta", "fuente": "Estatuto Tributario Art. 255", "sistema": "Ventanilla Virtual / PR46", "area": "Subdirector SEGAE", "acceso": "Control Sistema", "estado": "DATO HOMOLOGADO", "llave": "Trámite ID", "replica": "Sí (DIAN)", "grupo": "Grupo Fiscal", "preguntas": "PE-04, PE-18"}, {"id": "ATR-207", "eslabon": "E8 · Homologación e Interoperabilidad (OTI)", "campo": "CA-01 Predial", "nombre": "Score Distancia Espacial ST_DWithin entre Sedes (Metros)", "naturaleza": "Numérico Decimal (Metros)", "grano": "Sede / Cruce", "frecuencia": "Al Homologar (ETL)", "fuente": "Algoritmo RN_HOMOLOGACION", "sistema": "Tabla tbl_homologacion", "area": "Oficina OTI / Administrador", "acceso": "Ejecución Algoritmo", "estado": "DATO HOMOLOGADO", "llave": "Cruce ID", "replica": "No", "grupo": "Grupo GIS", "preguntas": "PE-12, PE-14"}, {"id": "ATR-208", "eslabon": "E8 · Homologación e Interoperabilidad (OTI)", "campo": "CA-01 Predial", "nombre": "Score Similitud Texto Dirección Levenshtein (%)", "naturaleza": "Numérico Porcentaje (0-100%)", "grano": "Sede / Cruce", "frecuencia": "Al Homologar (ETL)", "fuente": "Algoritmo RN_HOMOLOGACION", "sistema": "Tabla tbl_homologacion", "area": "Oficina OTI / Administrador", "acceso": "Ejecución Algoritmo", "estado": "DATO HOMOLOGADO", "llave": "Cruce ID", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-12, PE-14"}, {"id": "ATR-209", "eslabon": "E8 · Homologación e Interoperabilidad (OTI)", "campo": "CA-01 Predial", "nombre": "Score Coincidencia NIT entre Universos GAE/RUA/DGA/Rentas", "naturaleza": "Booleano (1.0 / 0.0)", "grano": "Sede / Cruce", "frecuencia": "Al Homologar (ETL)", "fuente": "Algoritmo RN_HOMOLOGACION", "sistema": "Tabla tbl_homologacion", "area": "Oficina OTI / Administrador", "acceso": "Ejecución Algoritmo", "estado": "DATO HOMOLOGADO", "llave": "Cruce ID", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-12, PE-14"}, {"id": "ATR-210", "eslabon": "E8 · Homologación e Interoperabilidad (OTI)", "campo": "CA-01 Predial", "nombre": "Nivel de Certeza Homologación Asignado (ALTA/MEDIA/BAJA)", "naturaleza": "Categoría / Texto", "grano": "Sede / Cruce", "frecuencia": "Al Homologar (ETL)", "fuente": "Algoritmo RN_HOMOLOGACION", "sistema": "Tabla tbl_homologacion", "area": "Oficina OTI / Administrador", "acceso": "Ejecución Algoritmo", "estado": "DATO HOMOLOGADO", "llave": "Cruce ID", "replica": "No (Llave SDA)", "grupo": "Grupo Técnico", "preguntas": "PE-12, PE-14"}, {"id": "ATR-211", "eslabon": "E8 · Homologación e Interoperabilidad (OTI)", "campo": "CA-01 Predial", "nombre": "Bandera de Auditoría Manual para Certeza BAJA (Sí/No)", "naturaleza": "Booleano (Flag)", "grano": "Sede / Cruce", "frecuencia": "Al Homologar (ETL)", "fuente": "Algoritmo RN_HOMOLOGACION", "sistema": "Tabla tbl_homologacion", "area": "Administrador Datos SDA", "acceso": "Formulario Auditoría", "estado": "DATO HOMOLOGADO", "llave": "Cruce ID", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-12"}, {"id": "ATR-212", "eslabon": "E8 · Homologación e Interoperabilidad (OTI)", "campo": "CA-01 Predial", "nombre": "Identificador de Sede Equivalente en RUA IDEAM (NumeroEstablecimiento)", "naturaleza": "Alfanumérico (Establecimiento)", "grano": "Sede / RUA", "frecuencia": "Sincronización Batch", "fuente": "RUA IDEAM Web Service", "sistema": "Tabla tbl_homologacion / RUA", "area": "Oficina OTI SDA", "acceso": "Web Service / ETL", "estado": "DATO HOMOLOGADO", "llave": "Sede / RUA ID", "replica": "Sí (RUA)", "grupo": "Grupo Interoperabilidad", "preguntas": "PE-12, PE-14"}, {"id": "ATR-213", "eslabon": "E8 · Homologación e Interoperabilidad (OTI)", "campo": "CA-02 Productiva", "nombre": "Homologación Sectorial CIIU entre GAE, RUA y Rentas SDH", "naturaleza": "Alfanumérico / Categoría", "grano": "Empresa / Sector", "frecuencia": "Sincronización Batch", "fuente": "Cruce Mástér CIIU", "sistema": "Tabla tbl_empresa / BOG Data", "area": "Oficina OTI SDA", "acceso": "Web Service / ETL", "estado": "DATO HOMOLOGADO", "llave": "Empresa / CIIU", "replica": "Sí (RUA/BOG Data)", "grupo": "Grupo Interoperabilidad", "preguntas": "PE-02, PE-14"}, {"id": "ATR-214", "eslabon": "E8 · Homologación e Interoperabilidad (OTI)", "campo": "CA-02 Productiva", "nombre": "Estandarización Nombre Comercial de la Sede", "naturaleza": "Texto Normalizado", "grano": "Sede", "frecuencia": "Al Homologar (ETL)", "fuente": "Limpieza de Texto ETL", "sistema": "Tabla tbl_establecimiento", "area": "Oficina OTI SDA", "acceso": "Ejecución Algoritmo", "estado": "DATO HOMOLOGADO", "llave": "Sede / Nombre", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-12"}, {"id": "ATR-215", "eslabon": "E8 · Homologación e Interoperabilidad (OTI)", "campo": "CA-03 Hídrico", "nombre": "Prorrateo Cronológico Diario Consumo Agua (RN_TEMPORALIDAD)", "naturaleza": "Numérico Decimal (m3/día)", "grano": "Factura / Día", "frecuencia": "Cierre de Balance Anual", "fuente": "Algoritmo RN_TEMPORALIDAD", "sistema": "Engine BD PostgreSQL", "area": "Oficina OTI / Analítica", "acceso": "Cálculo Algorítmico", "estado": "DATO HOMOLOGADO", "llave": "Consumo Día ID", "replica": "No", "grupo": "Grupo Analítico", "preguntas": "PE-01, PE-14"}, {"id": "ATR-216", "eslabon": "E8 · Homologación e Interoperabilidad (OTI)", "campo": "CA-03 Hídrico", "nombre": "Asignación m3 Agua al Año de Balance N-1 vs Año N", "naturaleza": "Numérico Decimal (m3)", "grano": "Sede / Año", "frecuencia": "Cierre de Balance Anual", "fuente": "Algoritmo RN_TEMPORALIDAD", "sistema": "Engine BD PostgreSQL", "area": "Oficina OTI / Analítica", "acceso": "Cálculo Algorítmico", "estado": "DATO HOMOLOGADO", "llave": "Sede / Año", "replica": "Sí (RUA)", "grupo": "Grupo Analítico", "preguntas": "PE-01, PE-14"}, {"id": "ATR-217", "eslabon": "E8 · Homologación e Interoperabilidad (OTI)", "campo": "CA-03 Hídrico", "nombre": "Sincronización Puntos Captación Pozo con RUA IDEAM", "naturaleza": "Alfanumérico (Pozo RUA)", "grano": "Pozo / RUA", "frecuencia": "Sincronización Batch", "fuente": "Web Service RUA IDEAM", "sistema": "Engine BD / RUA", "area": "Oficina OTI SDA", "acceso": "Web Service / ETL", "estado": "DATO HOMOLOGADO", "llave": "Pozo ID", "replica": "Sí (RUA)", "grupo": "Grupo Interoperabilidad", "preguntas": "PE-01, PE-08"}, {"id": "ATR-218", "eslabon": "E8 · Homologación e Interoperabilidad (OTI)", "campo": "CA-04 Energía", "nombre": "Prorrateo Cronológico Diario Consumo Energía (RN_TEMPORALIDAD)", "naturaleza": "Numérico Decimal (kWh/día)", "grano": "Factura / Día", "frecuencia": "Cierre de Balance Anual", "fuente": "Algoritmo RN_TEMPORALIDAD", "sistema": "Engine BD PostgreSQL", "area": "Oficina OTI / Analítica", "acceso": "Cálculo Algorítmico", "estado": "DATO HOMOLOGADO", "llave": "Consumo Día ID", "replica": "No", "grupo": "Grupo Analítico", "preguntas": "PE-01, PE-14"}, {"id": "ATR-219", "eslabon": "E8 · Homologación e Interoperabilidad (OTI)", "campo": "CA-04 Energía", "nombre": "Asignación kWh Energía al Año de Balance N-1 vs Año N", "naturaleza": "Numérico Decimal (kWh)", "grano": "Sede / Año", "frecuencia": "Cierre de Balance Anual", "fuente": "Algoritmo RN_TEMPORALIDAD", "sistema": "Engine BD PostgreSQL", "area": "Oficina OTI / Analítica", "acceso": "Cálculo Algorítmico", "estado": "DATO HOMOLOGADO", "llave": "Sede / Año", "replica": "Sí (RUA)", "grupo": "Grupo Analítico", "preguntas": "PE-01, PE-14"}, {"id": "ATR-220", "eslabon": "E8 · Homologación e Interoperabilidad (OTI)", "campo": "CA-04 Energía", "nombre": "Integración Balance Energético Anual con Inventario Emisiones", "naturaleza": "Numérico Decimal", "grano": "Sede / Año", "frecuencia": "Sincronización Anual", "fuente": "Módulo Aire / Emisiones SDA", "sistema": "Visor Geoambiental / OTI", "area": "Oficina OTI SDA", "acceso": "ETL Interno", "estado": "DATO HOMOLOGADO", "llave": "Sede / Año", "replica": "No", "grupo": "Grupo GIS", "preguntas": "PE-01, PE-09"}, {"id": "ATR-221", "eslabon": "E8 · Homologación e Interoperabilidad (OTI)", "campo": "CA-05 RESPEL", "nombre": "Sincronización Inventario RESPEL con Sistema RUA IDEAM", "naturaleza": "Alfanumérico / Decimal", "grano": "Residuo / RUA", "frecuencia": "Sincronización Batch", "fuente": "Web Service RUA IDEAM", "sistema": "Engine BD / RUA", "area": "Oficina OTI SDA", "acceso": "Web Service / ETL", "estado": "DATO HOMOLOGADO", "llave": "Residuo ID", "replica": "Sí (RUA)", "grupo": "Grupo Interoperabilidad", "preguntas": "PE-03, PE-14"}, {"id": "ATR-222", "eslabon": "E8 · Homologación e Interoperabilidad (OTI)", "campo": "CA-05 RESPEL", "nombre": "Validación Cruzada Licencia Gestor RESPEL con BBDD Licencias", "naturaleza": "Booleano (Licencia Valida)", "grano": "Gestor", "frecuencia": "Sincronización Batch", "fuente": "Módulo Licencias SDA/ANLA", "sistema": "Engine BD PostgreSQL", "area": "Oficina OTI SDA", "acceso": "Consulta SQL ETL", "estado": "DATO HOMOLOGADO", "llave": "Gestor (NIT)", "replica": "Sí (RUA)", "grupo": "Grupo Interoperabilidad", "preguntas": "PE-03"}, {"id": "ATR-223", "eslabon": "E8 · Homologación e Interoperabilidad (OTI)", "campo": "CA-05 RESPEL", "nombre": "Estandarización de Unidades RESPEL a Kilogramos en ETL", "naturaleza": "Numérico Decimal (kg)", "grano": "Acta / Residuo", "frecuencia": "Al Homologar (ETL)", "fuente": "Conversor Estándar ETL", "sistema": "Tabla fact_residuos", "area": "Oficina OTI SDA", "acceso": "Ejecución Algoritmo", "estado": "DATO HOMOLOGADO", "llave": "Residuo ID", "replica": "No", "grupo": "Grupo Analítico", "preguntas": "PE-03"}, {"id": "ATR-224", "eslabon": "E8 · Homologación e Interoperabilidad (OTI)", "campo": "CA-06 SGA/DGA", "nombre": "Sincronización Estatus DGA con Registro Nacional RUA", "naturaleza": "Booleano + Fecha", "grano": "Empresa / DGA", "frecuencia": "Sincronización Batch", "fuente": "Web Service RUA IDEAM", "sistema": "Portal DGA / RUA", "area": "Oficina OTI SDA", "acceso": "Web Service / ETL", "estado": "DATO HOMOLOGADO", "llave": "Empresa / DGA", "replica": "Sí (RUA)", "grupo": "Grupo Interoperabilidad", "preguntas": "PE-07, PE-14"}, {"id": "ATR-225", "eslabon": "E8 · Homologación e Interoperabilidad (OTI)", "campo": "CA-06 SGA/DGA", "nombre": "Inscripción Oficial de la Sede en Ecodirectorio Empresarial", "naturaleza": "Booleano + Código Ecodirectorio", "grano": "Sede", "frecuencia": "Anual", "fuente": "Herramienta Web GAE", "sistema": "Ecodirectorio SDA", "area": "Oficina OTI SDA", "acceso": "Sincronización Web", "estado": "DATO HOMOLOGADO", "llave": "Sede / Ecodirectorio", "replica": "No", "grupo": "Grupo General", "preguntas": "PE-06, PE-07"}, {"id": "ATR-226", "eslabon": "E8 · Homologación e Interoperabilidad (OTI)", "campo": "CA-07 Proyectos", "nombre": "Consolidación Anual de Inversiones en Control/Conservación", "naturaleza": "Moneda (COP Consolidado)", "grano": "Empresa / Año", "frecuencia": "Anual", "fuente": "Cálculo Consolidado OTI", "sistema": "Tabla tbl_empresa / BOG Data", "area": "Oficina OTI SDA", "acceso": "Cálculo Algorítmico", "estado": "DATO HOMOLOGADO", "llave": "Empresa / Año", "replica": "Sí (DIAN/SDH)", "grupo": "Grupo Fiscal", "preguntas": "PE-04, PE-14"}, {"id": "ATR-227", "eslabon": "E8 · Homologación e Interoperabilidad (OTI)", "campo": "CA-08 Legalidad", "nombre": "Sincronización Automática Conceptos Uso de Suelo con SINUPOT", "naturaleza": "Alfanumérico + Geometría", "grano": "Predio / SINUPOT", "frecuencia": "Sincronización WFS", "fuente": "Geoservicio SDP / SINUPOT", "sistema": "SINUPOT / PostGIS", "area": "Oficina OTI / SIG", "acceso": "Servicio WFS / API", "estado": "DATO HOMOLOGADO", "llave": "Predio / SINUPOT", "replica": "Sí (SINUPOT)", "grupo": "Grupo GIS", "preguntas": "PE-13, PE-14"}, {"id": "ATR-228", "eslabon": "E8 · Homologación e Interoperabilidad (OTI)", "campo": "CA-08 Legalidad", "nombre": "Interoperabilidad de Alertas de Incumplimiento Normativo", "naturaleza": "Booleano + Alerta", "grano": "Sede", "frecuencia": "Sincronización Continua", "fuente": "Expediente Único SDA", "sistema": "Forest / BBDD SDA", "area": "Oficina OTI SDA", "acceso": "ETL Interno", "estado": "DATO HOMOLOGADO", "llave": "Sede / Alerta", "replica": "No", "grupo": "Grupo Técnico", "preguntas": "PE-13"}, {"id": "ATR-229", "eslabon": "E8 · Homologación e Interoperabilidad (OTI)", "campo": "CA-09 Soportes", "nombre": "Sincronización y Resguardo en Gestor Documental Corporativo", "naturaleza": "Alfanumérico (URI Forest)", "grano": "Documento ID", "frecuencia": "Al Validar", "fuente": "Gestor Documental Forest", "sistema": "Repositorio Forest / GAE", "area": "Oficina OTI SDA", "acceso": "API REST Sync", "estado": "DATO HOMOLOGADO", "llave": "Documento ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-10, PE-14"}, {"id": "ATR-230", "eslabon": "E8 · Homologación e Interoperabilidad (OTI)", "campo": "CA-09 Soportes", "nombre": "Hash de Integridad Probatoria del Archivo PDF Resguardado", "naturaleza": "Alfanumérico (SHA-256)", "grano": "Documento ID", "frecuencia": "Al Validar", "fuente": "Algoritmo Hash Security", "sistema": "Repositorio Forest", "area": "Oficina OTI SDA", "acceso": "Cálculo Seg. Digital", "estado": "DATO HOMOLOGADO", "llave": "Documento ID", "replica": "No", "grupo": "Grupo Auditor", "preguntas": "PE-10"}];
+        let camposData = [{"code": "CA-01", "name": "Identificación Predial y Localización", "scope": "Interno / Externo", "desc": "Ubicación física e infraestructura del predio en Bogotá D.C.", "count": 30, "icon": "🏢"}, {"code": "CA-02", "name": "Caracterización Físico-Productiva", "scope": "Interno", "desc": "Capacidad instalada, tamaño y actividad económica base.", "count": 24, "icon": "🏭"}, {"code": "CA-03", "name": "Desempeño Hídrico", "scope": "Interno / Externo", "desc": "Demanda y captación del recurso agua en la sede.", "count": 28, "icon": "💧"}, {"code": "CA-04", "name": "Desempeño Energético y Combustibles", "scope": "Interno / Externo", "desc": "Demanda energética en procesos, climatización y transporte.", "count": 29, "icon": "⚡"}, {"code": "CA-05", "name": "Gestión de RESPEL y Materiales", "scope": "Interno / Externo", "desc": "Generación y manejo seguro de residuos peligrosos e insumos.", "count": 26, "icon": "☣️"}, {"code": "CA-06", "name": "Organización y Gobernanza Ambiental", "scope": "Interno", "desc": "Estructura organizativa e instrumentos de autogestión.", "count": 20, "icon": "🌱"}, {"code": "CA-07", "name": "Inversiones y Proyectos de PML", "scope": "Interno", "desc": "Iniciativas de transformación ecológica y transición energética.", "count": 27, "icon": "💼"}, {"code": "CA-08", "name": "Cumplimiento Normativo y Legalidad", "scope": "Externo", "desc": "Estado de licencias, conceptos y permisos ambientales.", "count": 17, "icon": "⚖️"}, {"code": "CA-09", "name": "Soporte Probatorio y Fiscal", "scope": "Interno / Externo", "desc": "Evidencia documental para auditorías e incentivos tributarios.", "count": 29, "icon": "📄"}];
+        let eslabonesData = [{"code": "E1", "name": "Postulación e Inscripción", "deliverable": "Registro de usuario, radicado de entrada y términos aceptados", "count": 15, "icon": "📝"}, {"code": "E2", "name": "Caracterización y Diagnóstico Predial", "deliverable": "Ficha técnica de sede, código GAE_NIT_Consecutivo y comprobación SINUPOT", "count": 29, "icon": "🗺️"}, {"code": "E3", "name": "Captura y Registro de Mediciones", "deliverable": "Registros primarios de agua, energía, combustibles y RESPEL", "count": 37, "icon": "📊"}, {"code": "E4", "name": "Acompañamiento Técnico y Tutoría", "deliverable": "Plan de acción, diagnóstico de ineficiencias e informe de avance", "count": 28, "icon": "🤝"}, {"code": "E5", "name": "Auditoría, Verificación y Visita de Campo", "deliverable": "Informe técnico de visita, actas de verificación y concepto PR46", "count": 38, "icon": "🔍"}, {"code": "E6", "name": "Evaluación y Calificación del IDAE", "deliverable": "Calificación ponderada del IDAE y matriz de benchmarking sectorial", "count": 26, "icon": "📈"}, {"code": "E7", "name": "Certificación, Reconocimientos e Incentivos", "deliverable": "Certificado ambiental Renta, Reporte a Hacienda en Dic. y Galardón PREAD", "count": 33, "icon": "🏆"}, {"code": "E8", "name": "Homologación e Interoperabilidad", "deliverable": "Tabla tbl_homologacion con nivel de certeza (Alta/Media/Baja)", "count": 24, "icon": "🔄"}];
+        let preguntasData = [{"code": "PE-01", "topic": "Presión / Consumos", "question": "¿Cuál es el consumo total anual de agua (acueducto, pozo, carrotanque) y energía (eléctrica y térmica) prorrateado por días reales de servicio?", "ca": "CA-03 / CA-04"}, {"code": "PE-02", "topic": "Eficiencia / Benchmarking", "question": "¿Cuál es la intensidad de consumo por Unidad de Producción sectorial (Anexo 1) y cómo se compara frente al promedio del sector económico?", "ca": "CA-02 / CA-06"}, {"code": "PE-03", "topic": "RESPEL y Legalidad", "question": "¿Qué volumen de residuos peligrosos se genera por sede y qué porcentaje cuenta con acta de disposición final de gestor con licencia ambiental vigente?", "ca": "CA-05"}, {"code": "PE-04", "topic": "Incentivos / Renta", "question": "¿Qué personas jurídicas cumplen con los requisitos del Art. 255 ET / Res. 509/2018 para acceder al descuento del 25% en el Impuesto de Renta por inversión ambiental?", "ca": "CA-07 / CA-09"}, {"code": "PE-05", "topic": "Incentivos / Predial", "question": "¿Qué predios industriales Categoría 10 califican para tarifas reducidas de impuesto predial (8.5 per mil Bajo Impacto / 9.0 per mil Medio Impacto) según Res. 7189/2010?", "ca": "CA-01 / CA-08"}, {"code": "PE-06", "topic": "SGA / Autogestión", "question": "¿Qué organizaciones transitan exitosamente del acompañamiento ACERCAR al reconocimiento PREAD en sus niveles Marcha, Excelencia y Élite?", "ca": "CA-06"}, {"code": "PE-07", "topic": "Gobernanza / DGA", "question": "¿Qué empresas han conformado legalmente su Departamento de Gestión Ambiental (DGA) y ejecutan medidas de Producción Más Limpia (PML)?", "ca": "CA-06 / CA-07"}, {"code": "PE-08", "topic": "Gobernanza Energética", "question": "¿Qué empresas cuentan con fuentes propias de captación de agua o proyectos de eficiencia energética y Fuentes No Convencionales de Energía Renovable (FNCER)?", "ca": "CA-03 / CA-04 / CA-07"}, {"code": "PE-09", "topic": "Flotas Vehiculares", "question": "¿Qué organizaciones cuentan con flotas vehiculares >=10 vehículos y cuál es su consumo específico de ACPM/gasolina/gas por kilómetro recorrido?", "ca": "CA-04"}, {"code": "PE-10", "topic": "Trazabilidad Probatoria", "question": "¿Qué porcentaje de consumos declarados cuenta con soporte probatorio en PDF (facturas/actas) auditado bajo el procedimiento PR46?", "ca": "CA-09"}, {"code": "PE-11", "topic": "Territorio y Cartografía", "question": "¿En qué subcuencas hidrográficas o zonas de afectación se concentran los predios reportantes según coordenadas MAGNA-SIRGAS (EPSG:3116)?", "ca": "CA-01"}, {"code": "PE-12", "topic": "Calidad y Homologación", "question": "¿Qué nivel de certeza (Alta <20m, Media Levenshtein >85%, Baja) presenta el emparejamiento de sedes entre GAE, RUA, DGA y BOG Data?", "ca": "CA-01 / CA-08"}, {"code": "PE-13", "topic": "Cumplimiento Normativo", "question": "¿Qué predios cumplen de manera integral con el concepto de uso de suelo (SINUPOT/SDP) y conceptos sanitarios requeridos para incentivos?", "ca": "CA-08"}, {"code": "PE-14", "topic": "Interoperabilidad OTI", "question": "¿Qué atributos maestros deben sincronizarse periódicamente con BOG Data de Hacienda y el RUA del IDEAM para evitar duplicidades?", "ca": "CA-01 / CA-02"}, {"code": "PE-15", "topic": "Evaluación IDAE", "question": "¿Cuál es el puntaje final consolidado del IDAE ponderando 40% Indicadores de Presión + 30% SGA + 30% Proyectos Ambientales?", "ca": "CA-02 / CA-06 / CA-07"}];
+        let dimensionesData = [{"id": "DM-01", "name": "Empresa (Persona Jurídica)", "concept": "Entidad legal identificada por NIT nacional, titular de obligaciones tributarias.", "attributes": "NIT, Razón Social, Rep. Legal, Email, Teléfono, Tamaño, CIIU", "system": "Ventanilla Virtual SDA", "owner": "Subdirección SEGAE", "uses": "Descuento de Renta (25%), DGA legal, Firma de convenios"}, {"id": "DM-02", "name": "Establecimiento / Sede", "concept": "Planta física o predio industrial donde se ejecutan los procesos y consumos.", "attributes": "Código GAE_NIT_Consecutivo, CHIP, Matrícula Inmobiliaria, Dirección, Uso Suelo", "system": "Herramienta Web GAE / RUA", "owner": "Equipo Técnico SEGAE", "uses": "Mediciones de consumo, Impuesto Predial, Visitas PR46"}, {"id": "DM-03", "name": "Unidad de Producción", "concept": "Denominador sectorial del Anexo 1 para evaluar eficiencia y benchmarking.", "attributes": "ID_Unidad, Tipo Sector, Nombre Unidad, Valor Mensual Producción", "system": "Herramienta Web GAE", "owner": "Equipo Analítico IDAE", "uses": "Denominador de indicadores de consumo específico e IDAE"}, {"id": "DM-04", "name": "Cuenta Contrato / Servicio", "concept": "Identificador del punto de suministro de servicios públicos domiciliarios.", "attributes": "No. Cuenta, Empresa Prestadora (EAAB, Enel, Vanti), Dirección Servicio", "system": "Facturas de Servicios Públicos", "owner": "Equipo Auditor SEGAE", "uses": "Validación probatoria de consumos de agua, energía y gas"}, {"id": "DM-05", "name": "Gestor RESPEL", "concept": "Empresa autorizada con licencia ambiental para transporte y disposición.", "attributes": "NIT Gestor, Razón Social, No. Licencia Ambiental, Autoridad Emisora", "system": "RUA / Licencias Ambientales", "owner": "Equipo RESPEL SEGAE", "uses": "Validación probatoria de actas de residuos peligrosos"}, {"id": "DM-06", "name": "Trámites (General)", "concept": "Expediente o solicitud administrativa multisistema (RUA, Rentas, GAE, PREAD, DGA, Incentivos Tributarios, etc.).", "attributes": "No. Radicado, Fecha Radicación, Tipo Trámite (RUA/DGA/PREAD/GAE/Incentivo), Sistema Origen, Estado Flujo, Días Transcurridos, Acta / Concepto", "system": "Ventanilla Virtual SDA / Módulos Web", "owner": "Subdirección SEGAE / Equipos de Programa", "uses": "Trazabilidad de solicitudes, control de tiempos de respuesta, emisión de conceptos/certificados y seguimiento administrativo integral."}, {"id": "DM-07", "name": "Territorio (EPSG:3116)", "concept": "Geometría espacial del predio e infraestructura ambiental en Bogotá.", "attributes": "Geom_Point (MAGNA-SIRGAS), Localidad, UPZ, Cuenca Hidrográfica, Subcuenca", "system": "SINUPOT / Visor Geoambiental", "owner": "Oficina OTI / SIG SDA", "uses": "Análisis espacial, cruces de superposición y alertas territoriales"}];
+        let indicadoresData = [{"name": "Consumo Específico de Agua (CEA)", "ca": "CA-03 Hídrico", "formula": "m3 Agua Prorrateada Anual / Unidad de Producción", "inputs": "m3 Facturados acueducto, pozo, carrotanque y Valor Anual Unidad Producción", "freq": "Anual", "role": "Equipo IDAE", "use": "Evaluación de eficiencia hídrica e IDAE (40%)"}, {"name": "Consumo Específico de Energía (CEE)", "ca": "CA-04 Energía", "formula": "kWh Energía Activa Anual / Unidad de Producción", "inputs": "kWh Activa facturados Enel y Valor Anual Unidad Producción", "freq": "Anual", "role": "Equipo IDAE", "use": "Evaluación de eficiencia energética e IDAE (40%)"}, {"name": "Generación Específica de RESPEL", "ca": "CA-05 RESPEL", "formula": "kg RESPEL Totales Anuales / Unidad de Producción", "inputs": "kg RESPEL por actas auditadas y Valor Anual Unidad Producción", "freq": "Anual", "role": "Equipo RESPEL / IDAE", "use": "Evaluación de residuos peligrosos e IDAE (40%)"}, {"name": "Prorrateo Diario de Consumo (RN_TEMPORALIDAD)", "ca": "CA-03 / CA-04", "formula": "(Consumo Factura / Días Servicio) * Días Pertenece Año", "inputs": "Fecha Inicio Factura, Fecha Fin Factura, Consumo Factura", "freq": "Por Factura", "role": "Algoritmo Motor BD", "use": "Asignación exacta de consumos al año de referencia"}, {"name": "Índice IDAE Consolidado Ponderado", "ca": "CA-02/06/07", "formula": "(Subíndice Desempeño * 0.40) + (Subíndice SGA * 0.30) + (Subíndice Proyectos * 0.30)", "inputs": "Subíndice Indicadores (40%), Puntaje SGA (30%), Puntaje Proyectos PML (30%)", "freq": "Anual", "role": "Equipo IDAE / PREAD", "use": "Clasificación PREAD (Marcha, Excelencia, Élite)"}, {"name": "Monto Beneficio Descuento Renta (25%)", "ca": "CA-07 Inversión", "formula": "Costo Total Inversión Aprobada COP * 0.25", "inputs": "Monto Inversión certificado por Revisor Fiscal y Aprobación PR46", "freq": "Por Trámite", "role": "Contribuyente / DIAN", "use": "Descuento tributario Impuesto de Renta Art. 255 ET"}, {"name": "Tarifa Preferencial Impuesto Predial", "ca": "CA-01 Predial", "formula": "SI(Bajo_Impacto, 8.5, SI(Medio_Impacto, 9.0, 10.0)) per mil", "inputs": "Clasificación Res. 7189/2010, Categoría 10 recibo predial, CHIP verificado", "freq": "Anual", "role": "Secretaría Distrital de Hacienda", "use": "Liquidación tributaria del Impuesto Predial Unificado"}];
+        let fuentesData = [{"id": "1", "name": "Ventanilla Virtual SDA", "type": "Web Transaccional", "attrs": "35 Atributos", "owner": "Subdirección SEGAE", "mechanism": "API REST / DB Directa", "group": "Grupo General", "status": "Operativo", "lead": "Equipo Datos SEGAE"}, {"id": "2", "name": "Herramienta Web GAE / IDAE", "type": "Web Captura", "attrs": "58 Atributos", "owner": "Subdirección SEGAE", "mechanism": "Base de Datos PostgreSQL", "group": "Grupo Técnico", "status": "Operativo", "lead": "Equipo IDAE"}, {"id": "3", "name": "RUA IDEAM (Establecimientos)", "type": "Sistema Nacional", "attrs": "42 Atributos", "owner": "IDEAM / SDA", "mechanism": "Web Service / ETL Batch", "group": "Grupo Interoperabilidad", "status": "En Negociación", "lead": "Oficina OTI SDA"}, {"id": "4", "name": "Portal DGA", "type": "Web Registro", "attrs": "18 Atributos", "owner": "Subdirección SEGAE", "mechanism": "Base de Datos SQL", "group": "Grupo Técnico", "status": "Operativo", "lead": "Equipo DGA"}, {"id": "5", "name": "BOG Data / Rentas SDH", "type": "ERP Fiscal Distrital", "attrs": "25 Atributos", "owner": "Secretaría Distrital de Hacienda", "mechanism": "Servicio Web / BOG Data API", "group": "Grupo Fiscal", "status": "En Desarrollo", "lead": "OTI SDA - OTI SDH"}, {"id": "6", "name": "SINUPOT / Visor SDP", "type": "SIG Distrital", "attrs": "15 Atributos", "owner": "Secretaría Distrital de Planeación", "mechanism": "Geoservicio WFS/WMS", "group": "Grupo GIS", "status": "Operativo", "lead": "Equipo SIG SDA"}, {"id": "7", "name": "Visor Geoambiental SDA", "type": "SIG Corporativo", "attrs": "20 Atributos", "owner": "Oficina OTI SDA / SIG", "mechanism": "PostGIS Spatial Layer", "group": "Grupo GIS", "status": "Operativo", "lead": "Equipo SIG SDA"}, {"id": "8", "name": "Repositorio Forest / PR46", "type": "Gestor Documental", "attrs": "30 Atributos", "owner": "Secretaría Distrital de Ambiente", "mechanism": "API REST / Folder Sync", "group": "Grupo Auditor", "status": "Operativo", "lead": "Equipo PR46"}, {"id": "9", "name": "Empresas Servicios Públicos (ESP)", "type": "Sistemas Externos", "attrs": "22 Atributos", "owner": "EAAB, Enel, Vanti, Promoambiental", "mechanism": "Convenio Intercambio Datos", "group": "Grupo Interoperabilidad", "status": "Fase 3 Proyecto", "lead": "Subdirector SEGAE"}];
+        let matrixData = {"E1": {"CA-01": 4, "CA-02": 3, "CA-03": 1, "CA-04": 1, "CA-05": 1, "CA-06": 2, "CA-07": 0, "CA-08": 1, "CA-09": 2}, "E2": {"CA-01": 8, "CA-02": 6, "CA-03": 2, "CA-04": 2, "CA-05": 1, "CA-06": 3, "CA-07": 1, "CA-08": 4, "CA-09": 2}, "E3": {"CA-01": 2, "CA-02": 4, "CA-03": 8, "CA-04": 9, "CA-05": 7, "CA-06": 1, "CA-07": 2, "CA-08": 0, "CA-09": 4}, "E4": {"CA-01": 1, "CA-02": 2, "CA-03": 4, "CA-04": 4, "CA-05": 3, "CA-06": 4, "CA-07": 6, "CA-08": 2, "CA-09": 2}, "E5": {"CA-01": 3, "CA-02": 2, "CA-03": 5, "CA-04": 5, "CA-05": 6, "CA-06": 2, "CA-07": 4, "CA-08": 3, "CA-09": 8}, "E6": {"CA-01": 1, "CA-02": 4, "CA-03": 3, "CA-04": 3, "CA-05": 3, "CA-06": 4, "CA-07": 5, "CA-08": 1, "CA-09": 2}, "E7": {"CA-01": 5, "CA-02": 1, "CA-03": 2, "CA-04": 2, "CA-05": 2, "CA-06": 2, "CA-07": 8, "CA-08": 4, "CA-09": 7}, "E8": {"CA-01": 6, "CA-02": 2, "CA-03": 3, "CA-04": 3, "CA-05": 3, "CA-06": 2, "CA-07": 1, "CA-08": 2, "CA-09": 2}};
+        let roadmapData = [{"phase": "Fase 1: Consolidación Máster", "horizon": "Mes 1", "deliverable": "Despliegue de dimensiones maestras (Empresa y Sede con clave GAE_NIT_Consecutivo) y migración de inventarios GAE-PREAD.", "systems": "Ventanilla Virtual, GAE PostgreSQL", "success": "Cero sedes huérfanas y asignación de identificador único"}, {"phase": "Fase 2: Interoperabilidad Distrital", "horizon": "Mes 2", "deliverable": "Conexión web service con BOG Data (SDH) para validación de CHIPs prediales y con SINUPOT para conceptos de suelo.", "systems": "BOG Data, SINUPOT, Forest PR46", "success": "Validación automática de predios e informes PR46 adjuntos"}, {"phase": "Fase 3: Interoperabilidad Nacional y ESP", "horizon": "Mes 3", "deliverable": "Integración batch con RUA del IDEAM y convenios de datos directos con empresas de servicios públicos (EAAB, Enel, Vanti).", "systems": "RUA IDEAM, Sistemas ESP", "success": "Sincronización de balances de agua/energía sin digitación manual"}];
+
+        let chartCamposInstance = null;
+        let chartEslabonesInstance = null;
+
+        // Inicialización al cargar la página
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshAllUI();
+        });
+
+        function refreshAllUI() {
+            document.getElementById('kpiTotalAttrs').textContent = attributesData.length;
+            renderMatrix();
+            renderRoadmap();
+            renderCampos();
+            renderEslabones();
+            renderPreguntas();
+            renderDimensiones();
+            renderIndicadores();
+            renderFuentes();
+            populateFilters();
+            renderInventory(attributesData);
+            initCharts();
+        }
+
+        // Cambiar pestañas
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById(tabId).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+
+        // Render Matriz Firma de Datos
+        function renderMatrix() {
+            const tbody = document.getElementById('matrixBody');
+            tbody.innerHTML = '';
+            
+            const campos = ['CA-01', 'CA-02', 'CA-03', 'CA-04', 'CA-05', 'CA-06', 'CA-07', 'CA-08', 'CA-09'];
+            
+            Object.keys(matrixData).forEach(eKey => {
+                let tr = document.createElement('tr');
+                let eName = eslabonesData.find(e => e.code === eKey)?.name || eKey;
+                let totalRow = 0;
+                
+                let html = `<td style="text-align:left; font-weight:bold;">${eKey} - ${eName}</td>`;
+                
+                campos.forEach(cKey => {
+                    let val = matrixData[eKey][cKey] || 0;
+                    totalRow += val;
+                    let cellClass = 'cell-0';
+                    if (val >= 7) cellClass = 'cell-dark';
+                    else if (val >= 4) cellClass = 'cell-high';
+                    else if (val >= 2) cellClass = 'cell-med';
+                    else if (val >= 1) cellClass = 'cell-low';
+                    
+                    html += `<td class="matrix-cell ${cellClass}" onclick="filterMatrixCell('${eKey}', '${cKey}')">${val}</td>`;
+                });
+                
+                html += `<td style="font-weight:bold; background:#e2e8f0;">${totalRow}</td>`;
+                tr.innerHTML = html;
+                tbody.appendChild(tr);
+            });
+
+            // Row Totals
+            let trTotals = document.createElement('tr');
+            let totalsHtml = '<td style="font-weight:bold; background:#cbd5e1; text-align:left;">Total Atributos por Campo</td>';
+            let grandTotal = 0;
+            
+            campos.forEach(cKey => {
+                let cTotal = 0;
+                Object.keys(matrixData).forEach(eKey => { cTotal += matrixData[eKey][cKey] || 0; });
+                grandTotal += cTotal;
+                totalsHtml += `<td style="font-weight:bold; background:#cbd5e1;">${cTotal}</td>`;
+            });
+            totalsHtml += `<td style="font-weight:bold; background:#94a3b8; color:white;">${grandTotal}</td>`;
+            trTotals.innerHTML = totalsHtml;
+            tbody.appendChild(trTotals);
+        }
+
+        // Filtrar por celda de matriz
+        function filterMatrixCell(eCode, cCode) {
+            switchTab('tab-inventario');
+            document.getElementById('filterEslabon').value = eslabonesData.find(e => e.code === eCode)?.name || '';
+            document.getElementById('filterCampo').value = camposData.find(c => c.code === cCode)?.name || '';
+            filterInventory();
+        }
+
+        // Render Hoja de Ruta OTI
+        function renderRoadmap() {
+            const grid = document.getElementById('roadmapGrid');
+            grid.innerHTML = roadmapData.map(r => `
+                <div class="roadmap-card">
+                    <div class="roadmap-phase">${r.horizon}</div>
+                    <div class="roadmap-title">${r.phase}</div>
+                    <div class="roadmap-desc">${r.deliverable}</div>
+                    <div class="roadmap-meta">
+                        <strong>Sistemas:</strong> ${r.systems}<br>
+                        <strong>Criterio de Éxito:</strong> ${r.success}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Populate Filtros
+        function populateFilters() {
+            const selectCampo = document.getElementById('filterCampo');
+            selectCampo.innerHTML = '<option value="">Todos los Campos de Acción</option>';
+            camposData.forEach(c => {
+                let opt = document.createElement('option');
+                opt.value = `CA-${c.code.split('-')[1]} ${c.name}`;
+                opt.textContent = `${c.code} - ${c.name}`;
+                selectCampo.appendChild(opt);
+            });
+
+            const selectEslabon = document.getElementById('filterEslabon');
+            selectEslabon.innerHTML = '<option value="">Todos los Eslabones</option>';
+            eslabonesData.forEach(e => {
+                let opt = document.createElement('option');
+                opt.value = e.name;
+                opt.textContent = `${e.code} - ${e.name}`;
+                selectEslabon.appendChild(opt);
+            });
+        }
+
+        // Render Tabla Inventario
+        function renderInventory(data) {
+            const tbody = document.getElementById('inventoryTableBody');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--sda-text-muted);">No se encontraron atributos con los criterios seleccionados.</td></tr>`;
+                return;
+            }
+
+            data.forEach(item => {
+                let tr = document.createElement('tr');
+                let badgeClass = 'badge-original';
+                if (item.estado === 'DATO HOMOLOGADO') badgeClass = 'badge-homologado';
+                if (item.estado === 'DATO VALIDADO') badgeClass = 'badge-validado';
+
+                tr.innerHTML = `
+                    <td style="font-weight:bold; color:var(--sda-dark-green);">${item.id}</td>
+                    <td><strong>${item.nombre}</strong></td>
+                    <td>${item.campo}</td>
+                    <td>${item.eslabon}</td>
+                    <td>${item.sistema}</td>
+                    <td><span class="badge ${badgeClass}">${item.estado}</span></td>
+                    <td>${item.area}</td>
+                `;
+                tr.onclick = () => openModal(item);
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Filtrar Inventario
+        function filterInventory() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const campo = document.getElementById('filterCampo').value;
+            const eslabon = document.getElementById('filterEslabon').value;
+            const estado = document.getElementById('filterEstado').value;
+
+            const filtered = attributesData.filter(item => {
+                const matchesSearch = !search || 
+                    item.id.toLowerCase().includes(search) || 
+                    item.nombre.toLowerCase().includes(search) || 
+                    item.fuente.toLowerCase().includes(search) || 
+                    item.sistema.toLowerCase().includes(search);
+
+                const matchesCampo = !campo || item.campo.includes(campo.split(' ')[0]);
+                const matchesEslabon = !eslabon || item.eslabon.includes(eslabon.split(' ')[0]);
+                const matchesEstado = !estado || item.estado === estado;
+
+                return matchesSearch && matchesCampo && matchesEslabon && matchesEstado;
+            });
+
+            renderInventory(filtered);
+        }
+
+        // Open Modal Detalle
+        function openModal(item) {
+            document.getElementById('modalTitle').textContent = `${item.id} - ${item.nombre}`;
+            const modalBody = document.getElementById('modalBody');
+            
+            modalBody.innerHTML = `
+                <div class="detail-grid">
+                    <div class="detail-item"><div class="detail-label">ID Atributo</div><div class="detail-value">${item.id}</div></div>
+                    <div class="detail-item"><div class="detail-label">Nombre / Atributo Base</div><div class="detail-value">${item.nombre}</div></div>
+                    <div class="detail-item"><div class="detail-label">Campo de Acción</div><div class="detail-value">${item.campo}</div></div>
+                    <div class="detail-item"><div class="detail-label">Eslabón Cadena</div><div class="detail-value">${item.eslabon}</div></div>
+                    <div class="detail-item"><div class="detail-label">Naturaleza del Dato</div><div class="detail-value">${item.naturaleza}</div></div>
+                    <div class="detail-item"><div class="detail-label">Grano (Unidad)</div><div class="detail-value">${item.grano}</div></div>
+                    <div class="detail-item"><div class="detail-label">Frecuencia</div><div class="detail-value">${item.frecuencia}</div></div>
+                    <div class="detail-item"><div class="detail-label">Fuente Originaria</div><div class="detail-value">${item.fuente}</div></div>
+                    <div class="detail-item"><div class="detail-label">Sistema Fuente</div><div class="detail-value">${item.sistema}</div></div>
+                    <div class="detail-item"><div class="detail-label">Área Responsable</div><div class="detail-value">${item.area}</div></div>
+                    <div class="detail-item"><div class="detail-label">Mecanismo Acceso</div><div class="detail-value">${item.acceso}</div></div>
+                    <div class="detail-item"><div class="detail-label">Estado del Dato</div><div class="detail-value">${item.estado}</div></div>
+                    <div class="detail-item"><div class="detail-label">Nivel Llave Analítica</div><div class="detail-value">${item.llave}</div></div>
+                    <div class="detail-item"><div class="detail-label">¿Se Replica?</div><div class="detail-value">${item.replica}</div></div>
+                    <div class="detail-item"><div class="detail-label">Grupo Acceso OTI</div><div class="detail-value">${item.grupo}</div></div>
+                    <div class="detail-item"><div class="detail-label">Preguntas que Responde</div><div class="detail-value">${item.preguntas}</div></div>
+                </div>
+            `;
+            document.getElementById('detailModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').style.display = 'none';
+        }
+
+        // Export Data
+        function exportData(format) {
+            if (format === 'json') {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(attributesData, null, 2));
+                const dlAnchorElem = document.createElement('a');
+                dlAnchorElem.setAttribute("href", dataStr);
+                dlAnchorElem.setAttribute("download", "Modelo_Metadatos_PGAE_SDA.json");
+                dlAnchorElem.click();
+            } else if (format === 'csv') {
+                const headers = ["ID", "Nombre", "Campo", "Eslabón", "Naturaleza", "Grano", "Frecuencia", "Fuente", "Sistema", "Estado", "Responsable"];
+                let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n";
+                attributesData.forEach(row => {
+                    csvContent += `"${row.id}","${row.nombre}","${row.campo}","${row.eslabon}","${row.naturaleza}","${row.grano}","${row.frecuencia}","${row.fuente}","${row.sistema}","${row.estado}","${row.area}"\n`;
+                });
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", "Modelo_Metadatos_PGAE_SDA.csv");
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
+
+        // Render Cards Grids
+        function renderCampos() {
+            document.getElementById('camposGrid').innerHTML = camposData.map(c => `
+                <div class="info-card">
+                    <div class="info-header">
+                        <div class="info-icon">${c.icon || '📌'}</div>
+                        <div>
+                            <div class="info-title">${c.code} - ${c.name}</div>
+                            <div class="info-sub">Ámbito: ${c.scope}</div>
+                        </div>
+                    </div>
+                    <div class="info-body">
+                        <p>${c.desc}</p>
+                        <p style="margin-top:0.5rem; font-weight:bold; color:var(--sda-dark-green);">Total Atributos: ${c.count}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderEslabones() {
+            document.getElementById('eslabonesGrid').innerHTML = eslabonesData.map(e => `
+                <div class="info-card">
+                    <div class="info-header">
+                        <div class="info-icon">${e.icon || '🔹'}</div>
+                        <div>
+                            <div class="info-title">${e.code} - ${e.name}</div>
+                            <div class="info-sub">Total Atributos: ${e.count}</div>
+                        </div>
+                    </div>
+                    <div class="info-body">
+                        <strong>Entregable del Eslabón:</strong>
+                        <p>${e.deliverable}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderPreguntas() {
+            document.getElementById('preguntasGrid').innerHTML = preguntasData.map(p => `
+                <div class="info-card">
+                    <div class="info-header">
+                        <div class="info-icon">❓</div>
+                        <div>
+                            <div class="info-title">${p.code} (${p.topic})</div>
+                            <div class="info-sub">Campo Principal: ${p.ca}</div>
+                        </div>
+                    </div>
+                    <div class="info-body">
+                        <p style="font-weight:bold; color:var(--sda-text-main);">${p.question}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderDimensiones() {
+            document.getElementById('dimensionesGrid').innerHTML = dimensionesData.map(d => `
+                <div class="info-card">
+                    <div class="info-header">
+                        <div class="info-icon">🧩</div>
+                        <div>
+                            <div class="info-title">${d.id} - ${d.name}</div>
+                            <div class="info-sub">Sistema Maestro: ${d.system}</div>
+                        </div>
+                    </div>
+                    <div class="info-body">
+                        <p><strong>Concepto:</strong> ${d.concept}</p>
+                        <p style="margin-top:0.4rem;"><strong>Atributos Clave:</strong> ${d.attributes}</p>
+                        <p style="margin-top:0.4rem;"><strong>Área Propietaria:</strong> ${d.owner}</p>
+                        <p style="margin-top:0.4rem; color:var(--sda-dark-green);"><strong>Usos:</strong> ${d.uses}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderIndicadores() {
+            document.getElementById('indicadoresGrid').innerHTML = indicadoresData.map(i => `
+                <div class="info-card">
+                    <div class="info-header">
+                        <div class="info-icon">📈</div>
+                        <div>
+                            <div class="info-title">${i.name}</div>
+                            <div class="info-sub">${i.ca} | Frecuencia: ${i.freq}</div>
+                        </div>
+                    </div>
+                    <div class="info-body">
+                        <strong>Fórmula de Cálculo:</strong>
+                        <div class="formula-box">${i.formula}</div>
+                        <p><strong>Datos Requeridos:</strong> ${i.inputs}</p>
+                        <p style="margin-top:0.4rem;"><strong>Responsable:</strong> ${i.role}</p>
+                        <p style="margin-top:0.4rem; color:var(--sda-dark-green);"><strong>Uso Regulatorio:</strong> ${i.use}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderFuentes() {
+            document.getElementById('fuentesGrid').innerHTML = fuentesData.map(f => `
+                <div class="info-card">
+                    <div class="info-header">
+                        <div class="info-icon">💻</div>
+                        <div>
+                            <div class="info-title">${f.name}</div>
+                            <div class="info-sub">Tipo: ${f.type} | ${f.attrs}</div>
+                        </div>
+                    </div>
+                    <div class="info-body">
+                        <p><strong>Mecanismo Acceso:</strong> ${f.mechanism}</p>
+                        <p style="margin-top:0.4rem;"><strong>Área Responsable:</strong> ${f.owner}</p>
+                        <p style="margin-top:0.4rem;"><strong>Grupo Acceso OTI:</strong> ${f.group}</p>
+                        <p style="margin-top:0.4rem;"><strong>Estado:</strong> <span class="badge badge-validado">${f.status}</span></p>
+                        <p style="margin-top:0.4rem;"><strong>Responsable Gestión:</strong> ${f.lead}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Gráficos Chart.js
+        function initCharts() {
+            if (chartCamposInstance) chartCamposInstance.destroy();
+            if (chartEslabonesInstance) chartEslabonesInstance.destroy();
+
+            const ctxCampos = document.getElementById('chartCampos').getContext('2d');
+            chartCamposInstance = new Chart(ctxCampos, {
+                type: 'bar',
+                data: {
+                    labels: camposData.map(c => c.code),
+                    datasets: [{
+                        label: 'Número de Atributos',
+                        data: camposData.map(c => c.count),
+                        backgroundColor: '#577515',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+
+            const ctxEslabones = document.getElementById('chartEslabones').getContext('2d');
+            chartEslabonesInstance = new Chart(ctxEslabones, {
+                type: 'line',
+                data: {
+                    labels: eslabonesData.map(e => e.code),
+                    datasets: [{
+                        label: 'Atributos por Eslabón',
+                        data: eslabonesData.map(e => e.count),
+                        borderColor: '#89BC24',
+                        backgroundColor: 'rgba(137, 188, 36, 0.2)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 5,
+                        pointBackgroundColor: '#577515'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        }
+
+        // Handle Live Excel Upload directly in Browser via SheetJS
+        function handleExcelUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    // Parse Inventory Sheet
+                    let invSheetName = workbook.SheetNames.find(s => s.includes('Inventario')) || workbook.SheetNames[0];
+                    let wsInv = workbook.Sheets[invSheetName];
+                    let invJson = XLSX.utils.sheet_to_json(wsInv, { header: 1 });
+
+                    let newAttrs = [];
+                    for (let r = 3; r < invJson.length; r++) {
+                        let row = invJson[r];
+                        if (row && row[0] && String(row[0]).trim().startsWith('ATR-')) {
+                            newAttrs.push({
+                                id: String(row[0]).trim(),
+                                eslabon: String(row[1] || '').trim(),
+                                campo: String(row[2] || '').trim(),
+                                nombre: String(row[3] || '').trim(),
+                                naturaleza: String(row[4] || '').trim(),
+                                grano: String(row[5] || '').trim(),
+                                frecuencia: String(row[6] || '').trim(),
+                                fuente: String(row[7] || '').trim(),
+                                sistema: String(row[8] || '').trim(),
+                                area: String(row[9] || '').trim(),
+                                acceso: String(row[10] || '').trim(),
+                                estado: String(row[11] || '').trim(),
+                                llave: String(row[12] || '').trim(),
+                                replica: String(row[13] || '').trim(),
+                                grupo: String(row[14] || '').trim(),
+                                preguntas: String(row[15] || '').trim()
+                            });
+                        }
+                    }
+
+                    if (newAttrs.length > 0) {
+                        attributesData = newAttrs;
+                        
+                        // Recalculate matrix & counts
+                        const campos = ['CA-01', 'CA-02', 'CA-03', 'CA-04', 'CA-05', 'CA-06', 'CA-07', 'CA-08', 'CA-09'];
+                        const eslabones = ['E1', 'E2', 'E3', 'E4', 'E5', 'E6', 'E7', 'E8'];
+                        
+                        let newMatrix = {};
+                        eslabones.forEach(e => {
+                            newMatrix[e] = {};
+                            campos.forEach(c => {
+                                newMatrix[e][c] = attributesData.filter(a => a.eslabon.startsWith(e) && a.campo.startsWith(c)).length;
+                            });
+                        });
+                        matrixData = newMatrix;
+
+                        camposData.forEach(c => {
+                            c.count = attributesData.filter(a => a.campo.includes(c.code)).length;
+                        });
+
+                        eslabonesData.forEach(e => {
+                            e.count = attributesData.filter(a => a.eslabon.includes(e.code)).length;
+                        });
+
+                        refreshAllUI();
+                        alert(`✅ ¡Excelente! Se cargaron correctamente ${newAttrs.length} atributos desde el archivo "${file.name}".`);
+                    } else {
+                        alert("⚠️ No se encontraron atributos en el formato 'ATR-...' en la hoja de inventario.");
+                    }
+                } catch (err) {
+                    alert("❌ Error al procesar el archivo Excel: " + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+    </script>
+</body>
+</html>
