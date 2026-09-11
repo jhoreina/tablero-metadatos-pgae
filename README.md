@@ -1,6 +1,6 @@
 # Dashboard de Metadatos y Gobernanza de Datos PGAE (SDA)
 
-Este repositorio contiene la plataforma interactiva web del **Modelo de Metadatos y Gobernanza de Datos PGAE v5.0 / v6.0** de la **Secretaría Distrital de Ambiente (SDA)** de la Alcaldía Mayor de Bogotá D.C.
+Este repositorio contiene la plataforma interactiva web del **Modelo de Metadatos y Gobernanza de Datos PGAE v1.0** de la **Secretaría Distrital de Ambiente (SDA)** de la Alcaldía Mayor de Bogotá D.C.
 
 ---
 
@@ -88,4 +88,4 @@ git push -u origin main
 
 ---
 *Alcaldía Mayor de Bogotá D.C. — Secretaría Distrital de Ambiente (SDA)*  
-*Subdirección SEGAE / Oficina de Tecnologías de la Información y las Comunicaciones (OTI)*
+*Subdirección de Ecourbanismo y Gestión Ambiental Empresarial / Equipo Análisis Sectorial y POMCAS*
