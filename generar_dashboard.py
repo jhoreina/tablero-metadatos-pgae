@@ -3,7 +3,7 @@
 generar_dashboard.py
 --------------------
 Script de automatización para generar o actualizar el dashboard de metadatos PGAE - SDA
-en formato HTML/JS/CSS a partir de cualquier archivo Excel del modelo (por defecto Modelo_Metadatos_PGAE_SDA-vf.xlsx).
+en formato HTML/JS/CSS a partir de cualquier archivo Excel del modelo (soporta v10, vf, v9, etc.).
 
 Uso:
     python generar_dashboard.py [ruta_al_excel.xlsx]
@@ -12,6 +12,7 @@ Uso:
 import sys
 import os
 import json
+import glob
 import openpyxl
 
 def parse_excel_metadata(excel_path):
@@ -19,33 +20,71 @@ def parse_excel_metadata(excel_path):
     wb = openpyxl.load_workbook(excel_path, data_only=True)
     
     # 1. PGAE - Inventario (Atributos gobernados)
-    sheet_inv_name = 'PGAE - Inventario' if 'PGAE - Inventario' in wb.sheetnames else [s for s in wb.sheetnames if 'Inventario' in s][0]
+    sheet_inv_name = 'PGAE - Inventario' if 'PGAE - Inventario' in wb.sheetnames else [s for s in wb.sheetnames if 'Inventario' in s or 'pgae' in s.lower()][0]
     ws_inv = wb[sheet_inv_name]
     
+    # Detectar dinámicamente las columnas por el nombre del encabezado
+    header_row_idx = 3
+    col_map = {}
+    for c in range(1, ws_inv.max_column + 1):
+        val = ws_inv.cell(header_row_idx, c).value
+        if not val:
+            continue
+        v = str(val).lower().strip()
+        if 'id' in v and 'atributo' in v: col_map['id'] = c
+        elif 'eslab' in v: col_map['eslabon'] = c
+        elif 'campo' in v: col_map['campo'] = c
+        elif 'entidad' in v: col_map['entidad'] = c
+        elif 'dato' in v or 'atributo base' in v: col_map['nombre'] = c
+        elif 'naturaleza' in v: col_map['naturaleza'] = c
+        elif 'grano' in v: col_map['grano'] = c
+        elif 'frecuencia' in v: col_map['frecuencia'] = c
+        elif 'fuente' in v and 'origin' in v: col_map['fuente'] = c
+        elif 'sistema' in v: col_map['sistema'] = c
+        elif 'área' in v or 'area' in v: col_map['area'] = c
+        elif 'mecanismo' in v: col_map['acceso'] = c
+        elif 'estado' in v: col_map['estado'] = c
+        elif 'llave' in v or 'nivel' in v: col_map['llave'] = c
+        elif 'replica' in v: col_map['replica'] = c
+        elif 'grupo' in v: col_map['grupo'] = c
+        elif 'pregunta' in v: col_map['preguntas'] = c
+
+    # Mapeos por posición por defecto si no se detectan por nombre
+    def get_cell(r, key, default_col):
+        c = col_map.get(key, default_col)
+        return str(ws_inv.cell(r, c).value or '').strip()
+
     attributes = []
     for r in range(4, ws_inv.max_row + 1):
-        id_val = ws_inv.cell(r, 1).value
+        id_val = ws_inv.cell(r, col_map.get('id', 1)).value
         if id_val and str(id_val).strip().startswith('ATR-'):
+            # Detectar si existe columna Entidad Maestra
+            has_entidad = 'entidad' in col_map
+            entidad_val = get_cell(r, 'entidad', 4) if has_entidad else 'N/A'
+            
+            # Ajuste de índices por defecto si existe o no Entidad Maestra
+            offset = 1 if has_entidad else 0
+            
             attributes.append({
                 'id': str(id_val).strip(),
-                'eslabon': str(ws_inv.cell(r, 2).value or '').strip(),
-                'campo': str(ws_inv.cell(r, 3).value or '').strip(),
-                'nombre': str(ws_inv.cell(r, 4).value or '').strip(),
-                'naturaleza': str(ws_inv.cell(r, 5).value or '').strip(),
-                'grano': str(ws_inv.cell(r, 6).value or '').strip(),
-                'frecuencia': str(ws_inv.cell(r, 7).value or '').strip(),
-                'fuente': str(ws_inv.cell(r, 8).value or '').strip(),
-                'sistema': str(ws_inv.cell(r, 9).value or '').strip(),
-                'area': str(ws_inv.cell(r, 10).value or '').strip(),
-                'acceso': str(ws_inv.cell(r, 11).value or '').strip(),
-                'estado': str(ws_inv.cell(r, 12).value or '').strip(),
-                'llave': str(ws_inv.cell(r, 13).value or '').strip(),
-                'replica': str(ws_inv.cell(r, 14).value or '').strip(),
-                'grupo': str(ws_inv.cell(r, 15).value or '').strip(),
-                'preguntas': str(ws_inv.cell(r, 16).value or '').strip()
+                'eslabon': get_cell(r, 'eslabon', 2),
+                'campo': get_cell(r, 'campo', 3),
+                'entidad': entidad_val,
+                'nombre': get_cell(r, 'nombre', 4 + offset),
+                'naturaleza': get_cell(r, 'naturaleza', 5 + offset),
+                'grano': get_cell(r, 'grano', 6 + offset),
+                'frecuencia': get_cell(r, 'frecuencia', 7 + offset),
+                'fuente': get_cell(r, 'fuente', 8 + offset),
+                'sistema': get_cell(r, 'sistema', 9 + offset),
+                'area': get_cell(r, 'area', 10 + offset),
+                'acceso': get_cell(r, 'acceso', 11 + offset),
+                'estado': get_cell(r, 'estado', 12 + offset),
+                'llave': get_cell(r, 'llave', 13 + offset),
+                'replica': get_cell(r, 'replica', 14 + offset),
+                'grupo': get_cell(r, 'grupo', 15 + offset),
+                'preguntas': get_cell(r, 'preguntas', 16 + offset)
             })
-    print(f"   OK -> Atributos extraidos: {len(attributes)}")
-
+    print(f"   OK -> Atributos extraidos: {len(attributes)} (Columna Entidad Maestra detectada: {'Sí' if 'entidad' in col_map else 'No'})")
 
     # 2. Matriz Eslabón x Campo
     ws_mat = wb['Matriz Eslabón x Campo']
@@ -75,7 +114,7 @@ def parse_excel_metadata(excel_path):
             campos.append({
                 'code': c_code_clean,
                 'name': str(ws_c.cell(r, 2).value or '').strip(),
-                'scope': str(ws_c.cell(r, 5).value or '').strip(),
+                'scope': str(ws_c.cell(r, 5).value or ws_c.cell(r, 4).value or '').strip(),
                 'desc': str(ws_c.cell(r, 3).value or ws_c.cell(r, 4).value or '').strip(),
                 'count': count,
                 'icon': get_campo_icon(c_code_clean)
@@ -685,6 +724,7 @@ def generate_html_dashboard(data, output_path):
         .badge-original {{ background: #e0f2fe; color: #0369a1; }}
         .badge-homologado {{ background: #fef3c7; color: #b45309; }}
         .badge-validado {{ background: #dcfce7; color: #15803d; }}
+        .badge-entidad {{ background: #f3e8ff; color: #6b21a8; font-weight: 600; }}
 
         /* Generic Cards Grid */
         .card-grid {{
@@ -869,8 +909,8 @@ def generate_html_dashboard(data, output_path):
     <header>
         <div class="header-container">
             <div class="header-title">
-                <h1>Secretaría Distrital de Ambiente</h1>
-                <p>Modelo de Metadatos y Gobernanza de Datos PGAE (v5.0 / v6.0)</p>
+                <h1>Modelo de Datos y Metadatos PGAE (v1.0)</h1>
+                <p>Programa de Gestión Ambiental Empresarial (PGAE)</p>
             </div>
             <div class="header-actions">
                 <label class="btn-upload" title="Cargar un nuevo archivo Excel para actualizar la plataforma en tiempo real">
@@ -878,7 +918,7 @@ def generate_html_dashboard(data, output_path):
                     <input type="file" id="excelFileInput" accept=".xlsx" style="display:none;" onchange="handleExcelUpload(event)">
                 </label>
                 <div class="header-badge">
-                    🌿 Subdirección SEGAE / OTI
+                    🌿 Subdirección SEGAE
                 </div>
             </div>
         </div>
@@ -999,7 +1039,7 @@ def generate_html_dashboard(data, output_path):
             <!-- Filtros y Búsqueda -->
             <div class="controls-card">
                 <div class="search-box">
-                    <input type="text" id="searchInput" placeholder="Buscar por ID, atributo, fuente, sistema..." onkeyup="filterInventory()">
+                    <input type="text" id="searchInput" placeholder="Buscar por ID, atributo, entidad maestra, fuente, sistema..." onkeyup="filterInventory()">
                 </div>
                 <div class="filter-group">
                     <select id="filterCampo" class="filter-select" onchange="filterInventory()">
@@ -1007,6 +1047,9 @@ def generate_html_dashboard(data, output_path):
                     </select>
                     <select id="filterEslabon" class="filter-select" onchange="filterInventory()">
                         <option value="">Todos los Eslabones</option>
+                    </select>
+                    <select id="filterEntidad" class="filter-select" onchange="filterInventory()">
+                        <option value="">Todas las Entidades Maestras</option>
                     </select>
                     <select id="filterEstado" class="filter-select" onchange="filterInventory()">
                         <option value="">Todos los Estados del Dato</option>
@@ -1024,11 +1067,11 @@ def generate_html_dashboard(data, output_path):
                         <tr>
                             <th>ID Atributo</th>
                             <th>Atributo Base</th>
+                            <th>Entidad Maestra</th>
                             <th>Campo de Acción</th>
                             <th>Eslabón Cadena</th>
                             <th>Sistema Fuente</th>
                             <th>Estado</th>
-                            <th>Área Responsable</th>
                         </tr>
                     </thead>
                     <tbody id="inventoryTableBody">
@@ -1101,7 +1144,7 @@ def generate_html_dashboard(data, output_path):
     <!-- Footer -->
     <footer>
         <p>Alcaldía Mayor de Bogotá D.C. — Secretaría Distrital de Ambiente (SDA)</p>
-        <p>Modelo de Metadatos y Gobernanza de Datos PGAE v5.0 / v6.0 | Subdirección SEGAE / Oficina OTI</p>
+        <p>Modelo de Datos y Metadatos PGAE v1.0 | Subdirección SEGAE | 2026</p>
     </footer>
 
     <!-- Script principal de datos e interacción -->
@@ -1127,6 +1170,12 @@ def generate_html_dashboard(data, output_path):
 
         function refreshAllUI() {{
             document.getElementById('kpiTotalAttrs').textContent = attributesData.length;
+            document.getElementById('kpiCampos').textContent = camposData.length;
+            document.getElementById('kpiEslabones').textContent = eslabonesData.length;
+            document.getElementById('kpiPreguntas').textContent = preguntasData.length;
+            document.getElementById('kpiDimensiones').textContent = dimensionesData.length;
+            document.getElementById('kpiFuentes').textContent = fuentesData.length;
+
             renderMatrix();
             renderRoadmap();
             renderCampos();
@@ -1239,6 +1288,16 @@ def generate_html_dashboard(data, output_path):
                 opt.textContent = `${{e.code}} - ${{e.name}}`;
                 selectEslabon.appendChild(opt);
             }});
+
+            const selectEntidad = document.getElementById('filterEntidad');
+            selectEntidad.innerHTML = '<option value="">Todas las Entidades Maestras</option>';
+            let entidadesUnicas = [...new Set(attributesData.map(a => a.entidad).filter(e => e && e !== 'N/A'))].sort();
+            entidadesUnicas.forEach(ent => {{
+                let opt = document.createElement('option');
+                opt.value = ent;
+                opt.textContent = ent;
+                selectEntidad.appendChild(opt);
+            }});
         }}
 
         // Render Tabla Inventario
@@ -1260,11 +1319,11 @@ def generate_html_dashboard(data, output_path):
                 tr.innerHTML = `
                     <td style="font-weight:bold; color:var(--sda-dark-green);">${{item.id}}</td>
                     <td><strong>${{item.nombre}}</strong></td>
+                    <td><span class="badge badge-entidad">${{item.entidad || 'N/A'}}</span></td>
                     <td>${{item.campo}}</td>
                     <td>${{item.eslabon}}</td>
                     <td>${{item.sistema}}</td>
                     <td><span class="badge ${{badgeClass}}">${{item.estado}}</span></td>
-                    <td>${{item.area}}</td>
                 `;
                 tr.onclick = () => openModal(item);
                 tbody.appendChild(tr);
@@ -1276,20 +1335,23 @@ def generate_html_dashboard(data, output_path):
             const search = document.getElementById('searchInput').value.toLowerCase();
             const campo = document.getElementById('filterCampo').value;
             const eslabon = document.getElementById('filterEslabon').value;
+            const entidad = document.getElementById('filterEntidad').value;
             const estado = document.getElementById('filterEstado').value;
 
             const filtered = attributesData.filter(item => {{
                 const matchesSearch = !search || 
                     item.id.toLowerCase().includes(search) || 
                     item.nombre.toLowerCase().includes(search) || 
+                    (item.entidad && item.entidad.toLowerCase().includes(search)) || 
                     item.fuente.toLowerCase().includes(search) || 
                     item.sistema.toLowerCase().includes(search);
 
                 const matchesCampo = !campo || item.campo.includes(campo.split(' ')[0]);
                 const matchesEslabon = !eslabon || item.eslabon.includes(eslabon.split(' ')[0]);
+                const matchesEntidad = !entidad || item.entidad === entidad;
                 const matchesEstado = !estado || item.estado === estado;
 
-                return matchesSearch && matchesCampo && matchesEslabon && matchesEstado;
+                return matchesSearch && matchesCampo && matchesEslabon && matchesEntidad && matchesEstado;
             }});
 
             renderInventory(filtered);
@@ -1304,6 +1366,7 @@ def generate_html_dashboard(data, output_path):
                 <div class="detail-grid">
                     <div class="detail-item"><div class="detail-label">ID Atributo</div><div class="detail-value">${{item.id}}</div></div>
                     <div class="detail-item"><div class="detail-label">Nombre / Atributo Base</div><div class="detail-value">${{item.nombre}}</div></div>
+                    <div class="detail-item"><div class="detail-label">Entidad Maestra</div><div class="detail-value" style="color:var(--sda-dark-green); font-weight:bold;">${{item.entidad || 'N/A'}}</div></div>
                     <div class="detail-item"><div class="detail-label">Campo de Acción</div><div class="detail-value">${{item.campo}}</div></div>
                     <div class="detail-item"><div class="detail-label">Eslabón Cadena</div><div class="detail-value">${{item.eslabon}}</div></div>
                     <div class="detail-item"><div class="detail-label">Naturaleza del Dato</div><div class="detail-value">${{item.naturaleza}}</div></div>
@@ -1336,10 +1399,10 @@ def generate_html_dashboard(data, output_path):
                 dlAnchorElem.setAttribute("download", "Modelo_Metadatos_PGAE_SDA.json");
                 dlAnchorElem.click();
             }} else if (format === 'csv') {{
-                const headers = ["ID", "Nombre", "Campo", "Eslabón", "Naturaleza", "Grano", "Frecuencia", "Fuente", "Sistema", "Estado", "Responsable"];
+                const headers = ["ID", "Nombre", "Entidad Maestra", "Campo", "Eslabón", "Naturaleza", "Grano", "Frecuencia", "Fuente", "Sistema", "Estado", "Responsable"];
                 let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\\n";
                 attributesData.forEach(row => {{
-                    csvContent += `"${{row.id}}","${{row.nombre}}","${{row.campo}}","${{row.eslabon}}","${{row.naturaleza}}","${{row.grano}}","${{row.frecuencia}}","${{row.fuente}}","${{row.sistema}}","${{row.estado}}","${{row.area}}"\\n`;
+                    csvContent += `"${{row.id}}","${{row.nombre}}","${{row.entidad || ''}}","${{row.campo}}","${{row.eslabon}}","${{row.naturaleza}}","${{row.grano}}","${{row.frecuencia}}","${{row.fuente}}","${{row.sistema}}","${{row.estado}}","${{row.area}}"\\n`;
                 }});
                 const encodedUri = encodeURI(csvContent);
                 const link = document.createElement("a");
@@ -1520,73 +1583,230 @@ def generate_html_dashboard(data, output_path):
             const file = event.target.files[0];
             if (!file) return;
 
+            if (typeof XLSX === 'undefined') {{
+                alert("⚠️ La librería SheetJS no está cargada. Asegúrate de tener conexión a Internet o usa 'python generar_dashboard.py' en la consola.");
+                event.target.value = '';
+                return;
+            }}
+
             const reader = new FileReader();
             reader.onload = function(e) {{
                 try {{
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, {{ type: 'array' }});
                     
-                    // Parse Inventory Sheet
-                    let invSheetName = workbook.SheetNames.find(s => s.includes('Inventario')) || workbook.SheetNames[0];
+                    console.log("Hojas detectadas:", workbook.SheetNames);
+
+                    // 1. Parse Inventory Sheet
+                    let invSheetName = workbook.SheetNames.find(s => s.toLowerCase().includes('inventario')) || 
+                                       workbook.SheetNames.find(s => s.toLowerCase().includes('pgae')) || 
+                                       workbook.SheetNames[0];
                     let wsInv = workbook.Sheets[invSheetName];
-                    let invJson = XLSX.utils.sheet_to_json(wsInv, {{ header: 1 }});
+                    let invRows = XLSX.utils.sheet_to_json(wsInv, {{ header: 1 }});
+
+                    // Detect Dynamic Header Map
+                    let colMap = {{}};
+                    let headerRow = invRows.find(r => r && r.some(c => String(c).toLowerCase().includes('id atributo') || String(c).toLowerCase().includes('eslabón') || String(c).toLowerCase().includes('eslabon')));
+
+                    if (headerRow) {{
+                        headerRow.forEach((val, idx) => {{
+                            if (!val) return;
+                            let v = String(val).toLowerCase();
+                            if (v.includes('id') && v.includes('atributo')) colMap.id = idx;
+                            else if (v.includes('eslab')) colMap.eslabon = idx;
+                            else if (v.includes('campo')) colMap.campo = idx;
+                            else if (v.includes('entidad')) colMap.entidad = idx;
+                            else if (v.includes('dato') || v.includes('atributo base')) colMap.nombre = idx;
+                            else if (v.includes('naturaleza')) colMap.naturaleza = idx;
+                            else if (v.includes('grano')) colMap.grano = idx;
+                            else if (v.includes('frecuencia')) colMap.frecuencia = idx;
+                            else if (v.includes('fuente') && v.includes('origin')) colMap.fuente = idx;
+                            else if (v.includes('sistema')) colMap.sistema = idx;
+                            else if (v.includes('área') || v.includes('area')) colMap.area = idx;
+                            else if (v.includes('mecanismo')) colMap.acceso = idx;
+                            else if (v.includes('estado')) colMap.estado = idx;
+                            else if (v.includes('llave') || v.includes('nivel')) colMap.llave = idx;
+                            else if (v.includes('replica')) colMap.replica = idx;
+                            else if (v.includes('grupo')) colMap.grupo = idx;
+                            else if (v.includes('pregunta')) colMap.preguntas = idx;
+                        }});
+                    }}
+
+                    function getCellVal(row, key, defaultIdx) {{
+                        let idx = (colMap[key] !== undefined) ? colMap[key] : defaultIdx;
+                        return String(row[idx] || '').trim();
+                    }}
+
+                    let hasEntidadCol = colMap.entidad !== undefined;
+                    let offset = hasEntidadCol ? 1 : 0;
 
                     let newAttrs = [];
-                    for (let r = 3; r < invJson.length; r++) {{
-                        let row = invJson[r];
-                        if (row && row[0] && String(row[0]).trim().startsWith('ATR-')) {{
+                    for (let r = 0; r < invRows.length; r++) {{
+                        let row = invRows[r];
+                        let idIdx = colMap.id !== undefined ? colMap.id : 0;
+                        if (row && row[idIdx] && String(row[idIdx]).trim().toUpperCase().startsWith('ATR-')) {{
                             newAttrs.push({{
-                                id: String(row[0]).trim(),
-                                eslabon: String(row[1] || '').trim(),
-                                campo: String(row[2] || '').trim(),
-                                nombre: String(row[3] || '').trim(),
-                                naturaleza: String(row[4] || '').trim(),
-                                grano: String(row[5] || '').trim(),
-                                frecuencia: String(row[6] || '').trim(),
-                                fuente: String(row[7] || '').trim(),
-                                sistema: String(row[8] || '').trim(),
-                                area: String(row[9] || '').trim(),
-                                acceso: String(row[10] || '').trim(),
-                                estado: String(row[11] || '').trim(),
-                                llave: String(row[12] || '').trim(),
-                                replica: String(row[13] || '').trim(),
-                                grupo: String(row[14] || '').trim(),
-                                preguntas: String(row[15] || '').trim()
+                                id: String(row[idIdx]).trim(),
+                                eslabon: getCellVal(row, 'eslabon', 1),
+                                campo: getCellVal(row, 'campo', 2),
+                                entidad: hasEntidadCol ? getCellVal(row, 'entidad', 3) : 'N/A',
+                                nombre: getCellVal(row, 'nombre', 3 + offset),
+                                naturaleza: getCellVal(row, 'naturaleza', 4 + offset),
+                                grano: getCellVal(row, 'grano', 5 + offset),
+                                frecuencia: getCellVal(row, 'frecuencia', 6 + offset),
+                                fuente: getCellVal(row, 'fuente', 7 + offset),
+                                sistema: getCellVal(row, 'sistema', 8 + offset),
+                                area: getCellVal(row, 'area', 9 + offset),
+                                acceso: getCellVal(row, 'acceso', 10 + offset),
+                                estado: getCellVal(row, 'estado', 11 + offset),
+                                llave: getCellVal(row, 'llave', 12 + offset),
+                                replica: getCellVal(row, 'replica', 13 + offset),
+                                grupo: getCellVal(row, 'grupo', 14 + offset),
+                                preguntas: getCellVal(row, 'preguntas', 15 + offset)
                             }});
                         }}
                     }}
 
-                    if (newAttrs.length > 0) {{
-                        attributesData = newAttrs;
+                    if (newAttrs.length === 0) {{
+                        alert("⚠️ No se encontraron atributos en formato 'ATR-...' en la hoja " + invSheetName + ".");
+                        event.target.value = '';
+                        return;
+                    }}
+
+                    attributesData = newAttrs;
+
+                    // 2. Parse Matrix Sheet if available
+                    let matSheetName = workbook.SheetNames.find(s => s.toLowerCase().includes('matriz'));
+                    const campos = ['CA-01', 'CA-02', 'CA-03', 'CA-04', 'CA-05', 'CA-06', 'CA-07', 'CA-08', 'CA-09'];
+                    const eslabones = ['E1', 'E2', 'E3', 'E4', 'E5', 'E6', 'E7', 'E8'];
+
+                    let newMatrix = {{}};
+                    if (matSheetName) {{
+                        let wsMat = workbook.Sheets[matSheetName];
+                        let matRows = XLSX.utils.sheet_to_json(wsMat, {{ header: 1 }});
                         
-                        // Recalculate matrix & counts
-                        const campos = ['CA-01', 'CA-02', 'CA-03', 'CA-04', 'CA-05', 'CA-06', 'CA-07', 'CA-08', 'CA-09'];
-                        const eslabones = ['E1', 'E2', 'E3', 'E4', 'E5', 'E6', 'E7', 'E8'];
-                        
-                        let newMatrix = {{}};
+                        eslabones.forEach(e => {{
+                            newMatrix[e] = {{}};
+                            let rowMatch = matRows.find(r => r && r[0] && String(r[0]).trim().startsWith(e));
+                            campos.forEach((c, idx) => {{
+                                let val = rowMatch ? Number(rowMatch[idx + 1] || 0) : 0;
+                                newMatrix[e][c] = isNaN(val) ? 0 : val;
+                            }});
+                        }});
+                    }} else {{
                         eslabones.forEach(e => {{
                             newMatrix[e] = {{}};
                             campos.forEach(c => {{
-                                newMatrix[e][c] = attributesData.filter(a => a.eslabon.startsWith(e) && a.campo.startsWith(c)).length;
+                                newMatrix[e][c] = attributesData.filter(a => 
+                                    a.eslabon.toUpperCase().includes(e) && a.campo.toUpperCase().includes(c)
+                                ).length;
                             }});
                         }});
-                        matrixData = newMatrix;
-
-                        camposData.forEach(c => {{
-                            c.count = attributesData.filter(a => a.campo.includes(c.code)).length;
-                        }});
-
-                        eslabonesData.forEach(e => {{
-                            e.count = attributesData.filter(a => a.eslabon.includes(e.code)).length;
-                        }});
-
-                        refreshAllUI();
-                        alert(`✅ ¡Excelente! Se cargaron correctamente ${{newAttrs.length}} atributos desde el archivo "${{file.name}}".`);
-                    }} else {{
-                        alert("⚠️ No se encontraron atributos en el formato 'ATR-...' en la hoja de inventario.");
                     }}
+                    matrixData = newMatrix;
+
+                    // 3. Update Counts
+                    camposData.forEach(c => {{
+                        c.count = attributesData.filter(a => a.campo.toUpperCase().includes(c.code)).length;
+                    }});
+
+                    eslabonesData.forEach(e => {{
+                        e.count = attributesData.filter(a => a.eslabon.toUpperCase().includes(e.code)).length;
+                    }});
+
+                    // 4. Parse Optional Sheets
+                    let pregSheet = workbook.SheetNames.find(s => s.toLowerCase().includes('preguntas'));
+                    if (pregSheet) {{
+                        let pRows = XLSX.utils.sheet_to_json(workbook.Sheets[pregSheet], {{ header: 1 }});
+                        let newPreg = [];
+                        for (let r = 0; r < pRows.length; r++) {{
+                            let row = pRows[r];
+                            if (row && row[0] && String(row[0]).trim().startsWith('PE-')) {{
+                                newPreg.push({{
+                                    code: String(row[0]).trim(),
+                                    topic: String(row[1] || '').trim(),
+                                    question: String(row[2] || '').trim(),
+                                    ca: String(row[3] || '').trim()
+                                }});
+                            }}
+                        }}
+                        if (newPreg.length > 0) preguntasData = newPreg;
+                    }}
+
+                    let dimSheet = workbook.SheetNames.find(s => s.toLowerCase().includes('dimensiones'));
+                    if (dimSheet) {{
+                        let dRows = XLSX.utils.sheet_to_json(workbook.Sheets[dimSheet], {{ header: 1 }});
+                        let newDim = [];
+                        for (let r = 0; r < dRows.length; r++) {{
+                            let row = dRows[r];
+                            if (row && row[0] && String(row[0]).trim().startsWith('DM-')) {{
+                                newDim.push({{
+                                    id: String(row[0]).trim(),
+                                    name: String(row[1] || '').trim(),
+                                    concept: String(row[2] || '').trim(),
+                                    attributes: String(row[3] || '').trim(),
+                                    system: String(row[4] || '').trim(),
+                                    owner: String(row[5] || '').trim(),
+                                    uses: String(row[6] || '').trim()
+                                }});
+                            }}
+                        }}
+                        if (newDim.length > 0) dimensionesData = newDim;
+                    }}
+
+                    let indSheet = workbook.SheetNames.find(s => s.toLowerCase().includes('indicadores'));
+                    if (indSheet) {{
+                        let iRows = XLSX.utils.sheet_to_json(workbook.Sheets[indSheet], {{ header: 1 }});
+                        let newInd = [];
+                        for (let r = 3; r < iRows.length; r++) {{
+                            let row = iRows[r];
+                            if (row && row[0]) {{
+                                newInd.push({{
+                                    name: String(row[0]).trim(),
+                                    ca: String(row[1] || '').trim(),
+                                    formula: String(row[2] || '').trim(),
+                                    inputs: String(row[3] || '').trim(),
+                                    freq: String(row[4] || '').trim(),
+                                    role: String(row[5] || '').trim(),
+                                    use: String(row[6] || '').trim()
+                                }});
+                            }}
+                        }}
+                        if (newInd.length > 0) indicadoresData = newInd;
+                    }}
+
+                    let fueSheet = workbook.SheetNames.find(s => s.toLowerCase().includes('fuentes'));
+                    if (fueSheet) {{
+                        let fRows = XLSX.utils.sheet_to_json(workbook.Sheets[fueSheet], {{ header: 1 }});
+                        let newFue = [];
+                        for (let r = 3; r < fRows.length; r++) {{
+                            let row = fRows[r];
+                            if (row && row[0] != null) {{
+                                newFue.push({{
+                                    id: String(row[0]).trim(),
+                                    name: String(row[1] || '').trim(),
+                                    type: String(row[2] || '').trim(),
+                                    attrs: String(row[3] || '').trim(),
+                                    owner: String(row[4] || '').trim(),
+                                    mechanism: String(row[5] || '').trim(),
+                                    group: String(row[6] || '').trim(),
+                                    status: String(row[7] || '').trim(),
+                                    lead: String(row[8] || '').trim()
+                                }});
+                            }}
+                        }}
+                        if (newFue.length > 0) fuentesData = newFue;
+                    }}
+
+                    // Refrescar la interfaz completa
+                    refreshAllUI();
+                    
+                    alert(`✅ ¡Excelente! Se actualizó correctamente el dashboard con ${{newAttrs.length}} atributos del archivo "${{file.name}}".`);
                 }} catch (err) {{
-                    alert("❌ Error al procesar el archivo Excel: " + err.message);
+                    console.error("Error al procesar Excel:", err);
+                    alert("❌ Ocurrió un error al leer el archivo Excel: " + err.message);
+                }} finally {{
+                    event.target.value = '';
                 }}
             }};
             reader.readAsArrayBuffer(file);
@@ -1603,7 +1823,12 @@ def generate_html_dashboard(data, output_path):
 
 def main():
     workspace_dir = r"h:\Mi unidad\SECRETARIA DISTRITAL AMBIENTE\2026\MODELO DE DATOS PGAE"
-    default_excel = os.path.join(workspace_dir, "Modelo_Metadatos_PGAE_SDA-vf.xlsx")
+    
+    # Buscar el archivo Excel de metadatos más reciente en la carpeta
+    excel_candidates = sorted(glob.glob(os.path.join(workspace_dir, "Modelo_Metadatos_PGAE_SDA*.xlsx")), key=os.path.getmtime, reverse=True)
+    excel_candidates = [f for f in excel_candidates if '~$' not in f]
+    
+    default_excel = excel_candidates[0] if excel_candidates else os.path.join(workspace_dir, "Modelo_Metadatos_PGAE_SDA-v10.xlsx")
     
     excel_path = sys.argv[1] if len(sys.argv) > 1 else default_excel
     if not os.path.exists(excel_path):
